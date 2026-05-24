@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-05-23T22:13:08.089Z",
+  "channels": {
+    "new": {
+      "title": "一色イズ　歌唱データベース",
+      "updateText": "更新日：2026/05/24",
+      "updateDate": "2026-05-24",
+      "total": 1768,
+      "repertoire": 453,
+      "streams": 71,
+      "avgPerStream": 25.1,
+      "channelId": "new",
+      "channelLabel": "歌った曲リスト",
+      "keyPublished": false
+    }
+  },
+  "combined": {
+    "title": "一色イズ　歌唱データベース",
+    "updateText": "更新日：2026/05/24",
+    "updateDate": "2026-05-24",
+    "total": 1768,
+    "repertoire": 453,
+    "streams": 71,
+    "avgPerStream": 25.1,
+    "channelId": "new",
+    "channelLabel": "歌った曲リスト",
+    "keyPublished": false
+  }
+}
