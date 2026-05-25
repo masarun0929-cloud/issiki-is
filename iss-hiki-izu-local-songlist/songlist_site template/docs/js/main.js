@@ -5,6 +5,7 @@ import { initTheme, onThemeChange } from './theme.js';
 import { onRerenderNeeded, destroyAllCharts } from './charts.js';
 import { $, $$, escapeHtml, fmtDate, daysSince, isLink, formatNumber, streamKey } from './utils.js';
 import { CHANNELS, COMBINED_CHANNEL, DEFAULT_CHANNEL, SHOW_AUDIENCE_SWITCH, SHOW_COMBINED_CHANNEL, SHOW_SONG_KEYS, SITE, SOURCE_URL } from './config.js?v=20260523-live';
+import { renderSetlistPlanner } from './views/songs.js';
 import { readUrlState, writeUrlState } from './url-state.js';
 
 initTheme();
