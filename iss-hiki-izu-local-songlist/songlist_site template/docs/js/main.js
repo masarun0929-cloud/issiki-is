@@ -5,7 +5,6 @@ import { initTheme, onThemeChange } from './theme.js';
 import { onRerenderNeeded, destroyAllCharts } from './charts.js';
 import { $, $$, escapeHtml, fmtDate, daysSince, isLink, formatNumber, streamKey } from './utils.js';
 import { CHANNELS, COMBINED_CHANNEL, DEFAULT_CHANNEL, SHOW_AUDIENCE_SWITCH, SHOW_COMBINED_CHANNEL, SHOW_SONG_KEYS, SITE, SOURCE_URL } from './config.js?v=20260523-live';
-import { renderSetlistPlanner } from './views/songs.js';
 import { readUrlState, writeUrlState } from './url-state.js';
 
 initTheme();
@@ -407,14 +406,7 @@ function openSongDetail(key) {
         ${detailStats}
       </div>
     </div>
-    <div class="song-detail-actions">
-
-${state.singerMode ? `
-    <button class="tag-badge tag-click" type="button" data-detail-action="copy" data-songkey="${escapeHtml(song.key)}">
-      コピー
-    </button>
-  ` : ''}
-    
+    <div class="song-detail-actions">    
       <button class="btn primary" type="button" data-detail-action="timeline" data-songkey="${escapeHtml(song.key)}">歌枠を見る</button>
       <button class="btn ghost" type="button" data-detail-action="close">閉じる</button>
     </div>
@@ -460,22 +452,6 @@ function initSongModal() {
       close();
       if (song && ref) jumpToStreamFromDetail(song, ref);
     }
-
-if (action.dataset.detailAction === 'copy') {
-  const song = findSong(action.dataset.songkey);
-
-  if (song) {
-    const text = `${song.title} / ${song.artist}`;
-
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        renderSetlistPlanner('コピーしました');
-      });
-  }
-
-  return;
-}
-    
     if (action.dataset.detailAction === 'artist') {
       const song = findSong(action.dataset.songkey);
       close();
