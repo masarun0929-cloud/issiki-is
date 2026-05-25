@@ -413,6 +413,11 @@ body[data-audience="listener"] [data-mobile-panel-toggle="setlist"] {
   color: var(--primary-strong);
   text-decoration: underline;
 }
+.song-copy-btn.copied {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
 .song-meta-line {
   display: flex;
   flex-wrap: wrap;
