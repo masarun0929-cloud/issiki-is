@@ -149,6 +149,13 @@ export function renderSongs() {
       handleSetlistAction(action);
       return;
     }
+    const copySong = e.target.closest('[data-song-copy]');
+    if (copySong) {
+      e.preventDefault();
+      e.stopPropagation();
+      copySingleSong(copySong);
+      return;
+    }
     const artist = e.target.closest('[data-artist-search]');
     if (artist) {
       e.stopPropagation();
@@ -574,6 +581,24 @@ async function copySetlist() {
   }
 }
 
+async function copySingleSong(button) {
+  const song = songByKey(button.dataset.songkey);
+  if (!song) return;
+  const text = `${song.title} / ${song.artist}`;
+  const original = button.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    button.textContent = 'コピー済み';
+    button.classList.add('copied');
+  } catch (_) {
+    button.textContent = '失敗';
+  }
+  window.setTimeout(() => {
+    button.textContent = original || 'コピー';
+    button.classList.remove('copied');
+  }, 1200);
+}
+
 function sortSongs(songs, sort, isFuzzy) {
   const cmpDate = (a, b, dir) => {
     const av = a.lastSung ? a.lastSung.getTime() : (dir === 'desc' ? -Infinity : Infinity);
@@ -612,6 +637,7 @@ function rowHtml(song, tokens) {
           ${tagBadges(song)}
           ${reasons.map(reason => `<span class="match-badge">${escapeHtml(reason)}一致</span>`).join('')}
           ${state.singerMode ? `<button class="tag-badge tag-click" type="button" data-setlist-action="add" data-songkey="${escapeHtml(song.key)}">＋セトリ</button>` : ''}
+          ${state.singerMode ? `<button class="tag-badge song-copy-btn" type="button" data-song-copy data-songkey="${escapeHtml(song.key)}">コピー</button>` : ''}
         </div>
         ${keyHtml(song)}
       </div>
