@@ -407,6 +407,13 @@ function openSongDetail(key) {
       </div>
     </div>
     <div class="song-detail-actions">
+
+${state.singerMode ? `
+    <button class="tag-badge tag-click" type="button" data-detail-action="copy" data-songkey="${escapeHtml(song.key)}">
+      コピー
+    </button>
+  ` : ''}
+    
       <button class="btn primary" type="button" data-detail-action="timeline" data-songkey="${escapeHtml(song.key)}">歌枠を見る</button>
       <button class="btn ghost" type="button" data-detail-action="close">閉じる</button>
     </div>
