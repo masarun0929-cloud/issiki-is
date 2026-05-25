@@ -460,6 +460,22 @@ function initSongModal() {
       close();
       if (song && ref) jumpToStreamFromDetail(song, ref);
     }
+
+if (action.dataset.detailAction === 'copy') {
+  const song = findSong(action.dataset.songkey);
+
+  if (song) {
+    const text = `${song.title} / ${song.artist}`;
+
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        renderSetlistPlanner('コピーしました');
+      });
+  }
+
+  return;
+}
+    
     if (action.dataset.detailAction === 'artist') {
       const song = findSong(action.dataset.songkey);
       close();
