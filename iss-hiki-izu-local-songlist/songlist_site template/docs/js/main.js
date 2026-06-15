@@ -1,5 +1,5 @@
 import { state, initStore, toggleFavorite, isFavorite } from './store.js';
-import { ensureSongTags, loadAll, loadInitial } from './data.js';
+import { ensureSongTags, loadAll, loadInitial, loadPartial } from './data.js';
 import { buildIndex } from './search.js';
 import { initTheme, onThemeChange, cycleTheme } from './theme.js';
 import { onRerenderNeeded, destroyAllCharts } from './charts.js';
@@ -24,6 +24,7 @@ const VIEW_LOADERS = {
 const rendererCache = new Map();
 let renderToken = 0;
 let fullDataPromise = null;
+let partialDataPromise = null;
 
 function isValidTab(tab) {
   return Object.prototype.hasOwnProperty.call(VIEW_LOADERS, tab);
@@ -115,6 +116,22 @@ function startFullDataLoad() {
   return fullDataPromise;
 }
 
+function startPartialDataLoad() {
+  partialDataPromise = loadPartial({
+    meta: state.channelData,
+  }).then((partial) => {
+    applyPartialData(partial);
+    return partial;
+  }).finally(() => { partialDataPromise = null; });
+  return partialDataPromise;
+}
+
+async function ensurePartialData() {
+  if (state.channelData?.partialLoaded || state.channelData?.fullLoaded) return;
+  if (!partialDataPromise) startPartialDataLoad();
+  await partialDataPromise;
+}
+
 async function ensureFullData() {
   if (state.channelData?.fullLoaded) return;
   if (!fullDataPromise) startFullDataLoad();
@@ -134,7 +151,11 @@ async function renderTab(tab = state.activeTab, options = {}) {
     if (options.autoLoad) {
       renderPanelLoading(tab);
       try {
-        await ensureFullData();
+        if (needsStreams(tab)) {
+          await ensureFullData();
+        } else {
+          await ensurePartialData();
+        }
       } catch (error) {
         console.error('[data] full load failed', error);
         const panel = $(`#panel-${tab}`);
@@ -2924,7 +2945,6 @@ function openSongDetail(key) {
       </div>
       <div class="song-detail-stats">
         <div><strong>${song.count}</strong><span>歌唱回数</span></div>
-        <div><strong>${song.displayKey || '—'}</strong><span>キー</span></div>
         <div><strong>${song.daysSinceLast ?? '—'}</strong><span>日前</span></div>
         <div><strong>${fmtDate(song.firstSung) || '—'}</strong><span>初披露</span></div>
       </div>
@@ -3284,10 +3304,7 @@ async function init() {
     const channelData = await loadInitial();
     state.channelData = channelData;
     applyLiveData(channelData);
-    // meta.json 完了直後に songs/streams の fetch を開始（ヒーロー描画処理を待たない）
-    if (!fullDataPromise && !channelData.fullLoaded) {
-      startFullDataLoad();
-    }
+    // フルデータは必要なタブ描画時に読み込む。初期表示では meta/songs を優先する。
     const url = readUrlState();
     const hasSharedVideo = !!url.v;
     state.songsQuery = url.q;

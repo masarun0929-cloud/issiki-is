@@ -40,7 +40,6 @@ const fuseOptions = {
     { name: 'tagText', weight: 0.14 },
     { name: 'moodText', weight: 0.12 },
     { name: 'seasonText', weight: 0.1 },
-    { name: 'keyText', weight: 0.1 },
     { name: 'moodTagText', weight: 0.1 },
     { name: 'singerTagText', weight: 0.08 },
   ],

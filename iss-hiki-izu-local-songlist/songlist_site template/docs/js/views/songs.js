@@ -41,6 +41,7 @@ function _setupInfinite(total) {
 }
 
 export function renderSongs() {
+  if (state.singerPreset === 'keyed') state.singerPreset = 'all';
   _disconnectInfinite(); // タブ再描画時にリーク防止
   loadSetlist();
   restoreSetlistFromUrl();
@@ -104,7 +105,6 @@ export function renderSongs() {
       </div>
       ${state.singerMode ? `
         <div class="songs-tools">
-          <button class="btn ghost" data-singer-preset="keyed" type="button">キー確認済み</button>
           <button class="btn ghost" data-singer-preset="classic" type="button">定番</button>
           <button class="btn ghost" data-singer-preset="stale" type="button">久しぶり</button>
           <button class="btn ghost" data-singer-preset="rare" type="button">レア</button>
@@ -573,9 +573,6 @@ function renderTodaysSongCard(song) {
   const lastHtml = song.lastSung
     ? `${fmtDate(song.lastSung)} · ${song.daysSinceLast}日前`
     : '履歴未確認';
-  const keyHtml = song.displayKey
-    ? `<span class="todays-song-key">キー ${escapeHtml(song.displayKey)}</span>`
-    : '';
   const addButton = state.singerMode
     ? `<button class="btn primary" type="button" data-setlist-action="todays-song-add" data-songkey="${escapeHtml(song.key)}">${icon('plus')} セトリに追加</button>`
     : '';
@@ -591,7 +588,6 @@ function renderTodaysSongCard(song) {
         <div class="todays-song-meta">
           <span class="todays-song-count">${song.count}回</span>
           <span class="todays-song-last">${lastHtml}</span>
-          ${keyHtml}
         </div>
       </div>
       <div class="todays-song-actions">
@@ -610,7 +606,7 @@ function showRecommendation() {
       preset: state.singerPreset,
       keyPublished: state.data?.stats?.keyPublished,
     })
-      .filter(song => song.lastSung && (song.displayKey || !state.data.stats.keyPublished)),
+      .filter(song => song.lastSung),
     'oldest',
     false
   );
@@ -632,7 +628,6 @@ function showRecommendation() {
       <div class="recommend-meta">
         <span>${pick.count}回</span>
         <span>${pick.daysSinceLast ?? '—'}日前</span>
-        ${pick.displayKey ? `<span>キー ${escapeHtml(pick.displayKey)}</span>` : ''}
       </div>
       <button class="recommend-dismiss" type="button" data-recommend-dismiss aria-label="おすすめ選曲を閉じる">×</button>
     </div>
@@ -721,10 +716,8 @@ function addToSetlist(song) {
 function addCustomToSetlist() {
   const titleEl = $('#setlist-custom-title');
   const artistEl = $('#setlist-custom-artist');
-  const keyEl = $('#setlist-custom-key');
   const title = String(titleEl?.value || '').trim();
   const artist = String(artistEl?.value || '').trim();
-  const displayKey = String(keyEl?.value || '').trim();
   if (!title) {
     renderSetlistPlanner('曲名を入力してください');
     return;
@@ -734,7 +727,7 @@ function addCustomToSetlist() {
     custom: true,
     title,
     artist,
-    displayKey,
+    displayKey: '',
     genre: '新規',
     moodTags: [],
     seasonTags: [],
@@ -833,8 +826,6 @@ function renderSetlistPlanner(message = '') {
           <div class="setlist-custom-row2">
             <input id="setlist-custom-artist" class="text-input" type="text"
                    placeholder="アーティスト名（任意）" autocomplete="off">
-            <input id="setlist-custom-key" class="text-input setlist-custom-key-inp" type="text"
-                   placeholder="キー" maxlength="5" autocomplete="off">
             <button class="btn primary" type="button" data-setlist-action="add-custom">追加</button>
           </div>
         </div>
@@ -843,7 +834,6 @@ function renderSetlistPlanner(message = '') {
     <div class="setlist-balance">
       ${balanceChip('ジャンル', balance.genres)}
       ${balanceChip('雰囲気', balance.moods)}
-      <span>キー ${balance.keys}/${items.length}</span>
       <span>久しぶり ${balance.stale}</span>
     </div>
     <div class="setlist-items">
@@ -878,7 +868,7 @@ function setlistItemHtml(item, index) {
       <div class="setlist-drag-handle" title="ドラッグして並び替え" aria-label="ドラッグハンドル">⠿</div>
       <div class="setlist-info">
         <strong>${escapeHtml(item.title)}</strong>
-        <span>${item.artist ? escapeHtml(item.artist) : 'アーティスト未入力'}${item.displayKey ? ` · key ${escapeHtml(item.displayKey)}` : ''}${item.custom ? ' · 新規' : ''}</span>
+        <span>${item.artist ? escapeHtml(item.artist) : 'アーティスト未入力'}${item.custom ? ' · 新規' : ''}</span>
       </div>
       <div class="setlist-move">
         <button class="setlist-copy-one" type="button" data-setlist-action="copy-item" data-index="${index}" aria-label="${escapeHtml(item.title)}をコピー">⧉</button>
@@ -1225,19 +1215,5 @@ function tagBadges(song) {
 function keyHtml(song) {
   if (!state.singerMode) return '';
   const addButton = `<button class="setlist-add-btn" type="button" data-setlist-action="add" data-songkey="${escapeHtml(song.key)}">${icon('plus')} セトリ</button>`;
-  if (!state.data?.stats?.keyPublished) {
-    return `<div class="song-key-line song-key-actions">${addButton}</div>`;
-  }
-  const key = String(song.displayKey || '').trim();
-  if (!key) {
-    return `<div class="song-key-line song-key-actions"><span class="song-key-empty">キー未登録</span>${addButton}</div>`;
-  }
-  return `
-    <div class="song-key-line song-key-actions">
-      <button type="button" class="song-key-badge" title="統合集計 T/U列のキー">
-        <span>キー</span><strong>${escapeHtml(key)}</strong>
-      </button>
-      ${addButton}
-    </div>
-  `;
+  return `<div class="song-key-line song-key-actions">${addButton}</div>`;
 }
