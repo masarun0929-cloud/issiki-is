@@ -164,11 +164,23 @@ function renderOfficialLinks() {
   nav.setAttribute('aria-label', `${SITE.creatorName} 公式リンク`);
   const headerLinks = (SITE.officialLinks ?? []).filter((link) =>
     ['YouTube', 'X'].includes(link.label) || ['youtube', 'x-link'].includes(link.className));
+  const avatarUrl = CHANNELS[DEFAULT_CHANNEL]?.avatarUrl || CHANNELS.new?.avatarUrl || '';
+  const renderHeaderLink = (link) => {
+    const className = escapeHtml(link.className || '');
+    const label = escapeHtml(link.label);
+    const href = escapeHtml(link.url);
+    const inner = link.className === 'youtube' && avatarUrl
+      ? `<img class="official-link-avatar" src="${escapeHtml(avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : link.className === 'x-link'
+        ? `<svg class="official-link-logo official-link-logo--x" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.2 2.3h3.3l-7.2 8.3 8.5 11.2h-6.7L11 15l-6 6.8H1.7l7.8-8.9L1.2 2.3h6.9l4.7 6.3zM17 19.8h1.8L7.1 4.1H5.2z"/></svg>`
+        : label;
+    return `<a class="official-link ${className}" href="${href}" target="_blank" rel="noopener" aria-label="${label}">${inner}</a>`;
+  };
   nav.innerHTML = [
     '<span class="topbar-official-label">Official Channel</span>',
     ...headerLinks
       .filter((link) => link.url)
-      .map((link) => `<a class="official-link ${escapeHtml(link.className || '')}" href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>`),
+      .map(renderHeaderLink),
   ].join('');
 }
 

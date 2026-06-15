@@ -542,9 +542,29 @@
   text-transform: uppercase;
 }
 .topbar-official-links .official-link {
-  min-height: 26px;
-  padding: 2px 9px;
-  font-size: 10.5px;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  overflow: hidden;
+  font-size: 0;
+}
+.official-link-avatar {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.official-link-logo {
+  width: 14px;
+  height: 14px;
+  display: block;
+  fill: currentColor;
+}
+.official-link-logo--x {
+  width: 13px;
+  height: 13px;
 }
 .official-link.youtube {
   border-color: #ff9aa2;
