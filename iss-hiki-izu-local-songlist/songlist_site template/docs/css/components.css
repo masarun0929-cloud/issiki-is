@@ -941,8 +941,8 @@ mark.hl {
 }
 
 .ch-card-links {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
   padding-top: 2px;
 }
@@ -950,7 +950,9 @@ mark.hl {
 .ch-card-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
+  min-width: 0;
   padding: 5px 11px;
   background: var(--surface-3);
   border: 1px solid var(--border);
@@ -959,6 +961,12 @@ mark.hl {
   color: var(--ink-soft);
   text-decoration: none;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.ch-card-link span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ch-card-link:hover {
@@ -1000,6 +1008,7 @@ mark.hl {
   .ch-card-stats { gap: 6px; }
   .ch-card-stat { padding: 7px 10px; min-width: 52px; }
   .ch-card-stat-val { font-size: 14px; }
+  .ch-card-links { grid-template-columns: 1fr; }
 }
 
 /* ============================================================

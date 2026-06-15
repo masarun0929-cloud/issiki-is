@@ -162,9 +162,11 @@ function renderOfficialLinks() {
   const nav = document.querySelector('.topbar-official-links');
   if (!nav) return;
   nav.setAttribute('aria-label', `${SITE.creatorName} 公式リンク`);
+  const headerLinks = (SITE.officialLinks ?? []).filter((link) =>
+    ['YouTube', 'X'].includes(link.label) || ['youtube', 'x-link'].includes(link.className));
   nav.innerHTML = [
     '<span class="topbar-official-label">Official Channel</span>',
-    ...SITE.officialLinks
+    ...headerLinks
       .filter((link) => link.url)
       .map((link) => `<a class="official-link ${escapeHtml(link.className || '')}" href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>`),
   ].join('');
