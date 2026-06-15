@@ -1,8 +1,8 @@
 import { icon } from './icons.js';
 
-const KEY = 'sample-songlist-theme';
+const KEY = 'yumegawa-theme';
 const ORDER = ['auto', 'light', 'dark'];
-const ICONS = { auto: icon('moon'), light: icon('sun'), dark: icon('moon') };
+const ICONS = { auto: 'sparkle', light: 'lightbulb', dark: 'moon' };
 const LABELS = { auto: 'auto', light: 'light', dark: 'dark' };
 
 const subscribers = new Set();
@@ -35,7 +35,7 @@ function apply() {
   document.documentElement.setAttribute('data-theme', t);
   const iconEl = document.getElementById('theme-icon');
   const labelEl = document.getElementById('theme-label');
-  if (iconEl) iconEl.innerHTML = ICONS[t];
+  if (iconEl) iconEl.innerHTML = icon(ICONS[t] || 'sparkle');
   if (labelEl) labelEl.textContent = LABELS[t];
 }
 

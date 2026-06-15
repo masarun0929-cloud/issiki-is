@@ -1,20 +1,16 @@
 import { initTheme } from './theme.js';
 import { $, fmtDate, formatNumber } from './utils.js';
-import { SITE } from './config.js';
+import { loadAll } from './data.js';
+import { CHANNELS, DEFAULT_CHANNEL } from './config.js';
+import { state } from './store.js';
+import { collectDatasetIssues } from './domain-compat.js';
 
 initTheme();
-applySiteConfig();
 
 const adminToken = $('#admin-token');
 if (adminToken) {
   adminToken.value = localStorage.getItem('adminToken') || '';
   adminToken.addEventListener('input', () => localStorage.setItem('adminToken', adminToken.value));
-}
-
-function applySiteConfig() {
-  const baseTitle = `${SITE.creatorName}　${SITE.databaseName}`;
-  document.title = `歌枠管理｜${baseTitle}`;
-  document.querySelector('.brand')?.setAttribute('aria-label', `${baseTitle} ホーム`);
 }
 
 function parseDate(value) {
@@ -27,19 +23,8 @@ function parseDate(value) {
   return date;
 }
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }[ch]));
-}
-
 function setBadge(ok, text) {
   const badge = $('#api-badge');
-  if (!badge) return;
   badge.textContent = text;
   badge.classList.toggle('accent', ok);
 }
@@ -57,8 +42,15 @@ function statusRow(label, value, tone = '') {
   return `<div class="admin-status-row ${tone}"><span>${label}</span><strong>${value}</strong></div>`;
 }
 
-function songKey(song) {
-  return `${song.title || ''} / ${song.artist || ''}`;
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch]));
 }
 
 async function adminApi(path, body) {
@@ -70,28 +62,19 @@ async function adminApi(path, body) {
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
 
 function streamFormData() {
   return {
-    channelCode: $('#channel')?.value || 'new',
-    streamedOn: $('#streamed-on')?.value || '',
-    sourceIndex: $('#source-index')?.value || '',
-    title: $('#stream-title')?.value || '',
-    url: $('#stream-url')?.value || '',
-    songsText: $('#songs-text')?.value || '',
-  };
-}
-
-function liveFormData() {
-  return {
-    performedOn: $('#live-performed-on')?.value || '',
-    sourceIndex: $('#live-source-index')?.value || '',
-    title: $('#live-title')?.value || '',
-    songsText: $('#live-songs-text')?.value || '',
+    channelCode: $('#channel').value,
+    streamedOn: $('#streamed-on').value,
+    sourceIndex: $('#source-index').value,
+    title: $('#stream-title').value,
+    url: $('#stream-url').value,
+    songsText: $('#songs-text').value,
   };
 }
 
@@ -125,8 +108,8 @@ function renderSongMeta(rows) {
         <tbody>
           ${rows.map((row) => `
             <tr data-song-id="${row.id}">
-              <td>${escapeHtml(row.title)}</td>
-              <td>${escapeHtml(row.artist || '')}</td>
+              <td><input class="admin-compact-input" data-field="title" value="${escapeHtml(row.title || '')}"></td>
+              <td><input class="admin-compact-input" data-field="artist" value="${escapeHtml(row.artist || '')}"></td>
               <td><input class="admin-compact-input" data-field="displayKey" value="${escapeHtml(row.display_key || '')}"></td>
               <td><input class="admin-compact-input" data-field="genre" value="${escapeHtml(row.genre || '')}"></td>
               <td><button class="btn ghost" type="button" data-save-meta>保存</button></td>
@@ -138,38 +121,6 @@ function renderSongMeta(rows) {
   `;
 }
 
-function collectIssues(data) {
-  const issues = [];
-  const datasets = [
-    ...Object.entries(data.channels || {}),
-    ['combined', data.combined],
-  ].filter(([, dataset]) => dataset);
-
-  for (const [scope, dataset] of datasets) {
-    for (const song of dataset.songs || []) {
-      if (song.count > 0 && (!song.streamRefs || !song.streamRefs.length)) {
-        issues.push({ type: '履歴未確認', place: scope, detail: songKey(song) });
-      }
-      if (!song.genre || song.genre === '未分類') {
-        issues.push({ type: 'ジャンル未分類', place: scope, detail: songKey(song) });
-      }
-      if (dataset.stats?.keyPublished && !song.displayKey) {
-        issues.push({ type: 'キー未登録', place: scope, detail: songKey(song) });
-      }
-    }
-    for (const stream of dataset.streams || []) {
-      if (stream.songCount && stream.songs && stream.songCount !== stream.songs.length) {
-        issues.push({
-          type: '曲数不一致',
-          place: `${scope} 第${stream.index}枠`,
-          detail: `${fmtDate(parseDate(stream.date))}: 表示${stream.songs.length} / 記録${stream.songCount}`,
-        });
-      }
-    }
-  }
-  return issues;
-}
-
 function renderSync(data, elapsed) {
   const stats = data.combined?.stats || {};
   const update = parseDate(stats.updateDate);
@@ -178,8 +129,8 @@ function renderSync(data, elapsed) {
   const newestStream = parseDate(stats.newestStream || stats.updateDate);
   const rows = [
     statusRow('API応答', `${formatNumber(elapsed)}ms`, elapsed < 3000 ? 'ok' : 'warn'),
-    statusRow('更新日', fmtDate(update), ageDays != null && ageDays <= 3 ? 'ok' : 'warn'),
-    statusRow('更新から', ageDays == null ? '-' : `${ageDays}日`, ageDays != null && ageDays <= 3 ? 'ok' : 'warn'),
+    statusRow('スプシ更新日', fmtDate(update), ageDays != null && ageDays <= 3 ? 'ok' : 'warn'),
+    statusRow('更新から', ageDays == null ? '—' : `${ageDays}日`, ageDays != null && ageDays <= 3 ? 'ok' : 'warn'),
     statusRow('最新歌枠日', fmtDate(newestStream), 'ok'),
   ];
   $('#sync-status').innerHTML = rows.join('');
@@ -189,43 +140,40 @@ function renderSync(data, elapsed) {
 }
 
 function renderQuality(data) {
-  const issues = collectIssues(data);
-  const severe = issues.filter((issue) => ['履歴未確認', '曲数不一致'].includes(issue.type)).length;
+  const issues = collectDatasetIssues(data);
+  const severe = issues.filter(issue => ['履歴未確認', '曲数不一致'].includes(issue.type)).length;
   const summary = new Map();
   for (const issue of issues) summary.set(issue.type, (summary.get(issue.type) || 0) + 1);
   $('#quality-summary').innerHTML = [
     statusRow('履歴未確認', formatNumber(summary.get('履歴未確認') || 0), (summary.get('履歴未確認') || 0) ? 'warn' : 'ok'),
     statusRow('曲数不一致', formatNumber(summary.get('曲数不一致') || 0), (summary.get('曲数不一致') || 0) ? 'warn' : 'ok'),
     statusRow('ジャンル未分類', formatNumber(summary.get('ジャンル未分類') || 0), (summary.get('ジャンル未分類') || 0) ? 'warn' : 'ok'),
-    statusRow('キー未登録', formatNumber(summary.get('キー未登録') || 0), 'ok'),
+    statusRow('同一枠内重複', formatNumber(summary.get('同一枠内重複') || 0), 'ok'),
   ].join('');
   $('#quality-badge').textContent = severe ? '要確認' : '良好';
   $('#quality-badge').classList.toggle('accent', !severe);
   $('#issue-count').textContent = `${issues.length}件`;
-  $('#quality-rows').innerHTML = issues.slice(0, 100).map((issue) => `
+  $('#quality-rows').innerHTML = issues.slice(0, 100).map(issue => `
     <tr>
-      <td>${escapeHtml(issue.type)}</td>
-      <td>${escapeHtml(issue.place)}</td>
-      <td>${escapeHtml(issue.detail)}</td>
+      <td>${issue.type}</td>
+      <td>${issue.place}</td>
+      <td>${issue.detail}</td>
     </tr>
   `).join('') || '<tr><td colspan="3">大きな問題は見つかりませんでした</td></tr>';
 }
 
-async function loadChannels() {
-  try {
-    const data = await adminApi('channels');
-    $('#channel').innerHTML = data.channels.map((channel) => (
-      `<option value="${escapeHtml(channel.code)}">${escapeHtml(channel.name)}</option>`
-    )).join('');
-  } catch (error) {
-    $('#channel').innerHTML = '';
-    $('#stream-status').textContent = `チャンネル取得に失敗しました: ${error.message || String(error)}`;
-  }
+function loadChannels() {
+  const channelSelect = $('#channel');
+  const channels = Object.values(CHANNELS);
+  channelSelect.innerHTML = channels.map((channel) => (
+    `<option value="${escapeHtml(channel.id)}">${escapeHtml(channel.label)}</option>`
+  )).join('');
+  channelSelect.value = CHANNELS[DEFAULT_CHANNEL] ? DEFAULT_CHANNEL : channels[0]?.id || '';
 }
 
 async function loadStatus() {
   setBadge(false, '確認中');
-  $('#api-detail').textContent = '/api/data を読み込んでいます。';
+  $('#api-detail').textContent = '公開用の静的データを読み込んでいます。';
   $('#channel-rows').innerHTML = '<tr><td colspan="5">読み込み中</td></tr>';
   $('#sync-status').innerHTML = '<div class="admin-note">確認中</div>';
   $('#quality-summary').innerHTML = '<div class="admin-note">確認中</div>';
@@ -233,11 +181,10 @@ async function loadStatus() {
 
   const started = performance.now();
   try {
-    const res = await fetch('/api/data', { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const data = await loadAll();
     const elapsed = Math.round(performance.now() - started);
-    const stats = data.combined?.stats || {};
+    const combined = data.combined || {};
+    const stats = combined.stats || {};
 
     setBadge(true, '正常');
     $('#api-stats').innerHTML = [
@@ -245,7 +192,7 @@ async function loadStatus() {
       stat('歌枠', formatNumber(stats.streams), '枠'),
       stat('応答', formatNumber(elapsed), 'ms'),
     ].join('');
-    $('#api-detail').textContent = `最新データ: ${fmtDate(parseDate(stats.updateDate))} / APIキャッシュは最大約1分です。`;
+    $('#api-detail').textContent = `最新データ: ${fmtDate(parseDate(stats.updateDate))} / 公開サイトと同じ静的JSONを確認しています。`;
     renderSync(data, elapsed);
     renderQuality(data);
 
@@ -254,7 +201,7 @@ async function loadStatus() {
       const s = channel.stats || {};
       return `
         <tr>
-          <td>${escapeHtml(s.channelLabel || s.channelId || '-')}</td>
+          <td>${s.channelLabel || s.channelId || '-'}</td>
           <td>${formatNumber(s.repertoire)}</td>
           <td>${formatNumber(s.streams)}</td>
           <td>${formatNumber(s.total)}</td>
@@ -264,7 +211,11 @@ async function loadStatus() {
     }).join('') || '<tr><td colspan="5">チャンネルデータがありません</td></tr>';
   } catch (error) {
     setBadge(false, 'エラー');
-    $('#api-stats').innerHTML = [stat('曲数', '-'), stat('歌枠', '-'), stat('応答', '-')].join('');
+    $('#api-stats').innerHTML = [
+      stat('曲数', '-'),
+      stat('歌枠', '-'),
+      stat('応答', '-'),
+    ].join('');
     $('#api-detail').textContent = `API確認に失敗しました: ${error.message || String(error)}`;
     $('#channel-rows').innerHTML = '<tr><td colspan="5">取得できませんでした</td></tr>';
     $('#sync-status').innerHTML = '<div class="admin-note">取得できませんでした</div>';
@@ -276,9 +227,6 @@ async function loadStatus() {
 function initManagement() {
   const streamedOn = $('#streamed-on');
   if (streamedOn && !streamedOn.value) streamedOn.valueAsDate = new Date();
-  const liveOn = $('#live-performed-on');
-  if (liveOn && !liveOn.value) liveOn.valueAsDate = new Date();
-  adminToken?.addEventListener('change', loadChannels);
   loadChannels();
 
   $('#preview-stream')?.addEventListener('click', async () => {
@@ -305,17 +253,6 @@ function initManagement() {
     }
   });
 
-  $('#submit-live')?.addEventListener('click', async () => {
-    if (!confirm('このリアルライブ情報をD1に登録します。よろしいですか？')) return;
-    $('#live-status').textContent = '登録中...';
-    try {
-      const data = await adminApi('live-events', liveFormData());
-      $('#live-status').textContent = `登録しました: live_id=${data.liveId}, ${data.songCount}曲。必要なら静的データ生成を開始してください。`;
-    } catch (error) {
-      $('#live-status').textContent = error.message || String(error);
-    }
-  });
-
   $('#search-songs')?.addEventListener('click', async () => {
     $('#meta-status').textContent = '検索中...';
     try {
@@ -335,6 +272,8 @@ function initManagement() {
     try {
       await adminApi('songs/metadata', {
         songId: row.dataset.songId,
+        title: row.querySelector('[data-field="title"]').value,
+        artist: row.querySelector('[data-field="artist"]').value,
         displayKey: row.querySelector('[data-field="displayKey"]').value,
         genre: row.querySelector('[data-field="genre"]').value,
       });
@@ -349,7 +288,7 @@ function initManagement() {
     $('#meta-status').textContent = '同期中...';
     try {
       const data = await adminApi('key-reference/sync-url', { url: $('#key-sheet-url').value });
-      $('#meta-status').textContent = `同期しました: updated=${data.updated}, skipped=${data.skipped}`;
+      $('#meta-status').textContent = `同期しました: updated=${data.updated}, skipped=${data.skipped}\ncolumns=${JSON.stringify(data.detectedColumns)}`;
     } catch (error) {
       $('#meta-status').textContent = error.message || String(error);
     }
@@ -365,7 +304,7 @@ function initManagement() {
     $('#meta-status').textContent = 'CSV同期中...';
     try {
       const data = await adminApi('key-reference/import-csv', { csvText: await file.text() });
-      $('#meta-status').textContent = `同期しました: updated=${data.updated}, skipped=${data.skipped}`;
+      $('#meta-status').textContent = `同期しました: updated=${data.updated}, skipped=${data.skipped}\ncolumns=${JSON.stringify(data.detectedColumns)}`;
     } catch (error) {
       $('#meta-status').textContent = error.message || String(error);
     }
@@ -383,6 +322,296 @@ function initManagement() {
   });
 }
 
-$('#refresh-status')?.addEventListener('click', loadStatus);
+/* ── コミュニティタイムスタンプ審査 ──────────────────────────────────────── */
+
+let _tsFilter  = 'pending';
+let _tsData    = null; // loadAll() の結果キャッシュ（配信・曲名参照用）
+let _tsItems   = [];
+let _tsBusy    = false;
+
+function fmtSeconds(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+function resolveTs(item) {
+  const ch     = _tsData?.channels?.[item.channelCode];
+  const stream = ch?.streams?.find(s => Number(s.index) === Number(item.streamIndex));
+  const song   = stream?.songs?.[item.songIndex];
+  return {
+    streamTitle: stream?.title || `第${item.streamIndex}枠`,
+    songTitle:   song ? `${song.title} / ${song.artist || ''}` : `曲${item.songIndex + 1}`,
+    date:        stream?.date || '',
+  };
+}
+
+function renderTimestamps(items) {
+  const wrap = $('#ts-table-wrap');
+  _tsItems = Array.isArray(items) ? items : [];
+  $('#ts-count').textContent = `${items.length}件`;
+  const approveAllBtn = $('#ts-approve-all');
+  if (approveAllBtn) {
+    approveAllBtn.hidden = _tsFilter !== 'pending';
+    approveAllBtn.disabled = _tsBusy || _tsFilter !== 'pending' || !_tsItems.length;
+    approveAllBtn.textContent = _tsItems.length ? `表示中${_tsItems.length}件を一括承認` : '表示中を一括承認';
+  }
+  if (!items.length) {
+    wrap.innerHTML = '<p class="admin-note">該当する申請はありません</p>';
+    return;
+  }
+  wrap.innerHTML = `
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>ch</th><th>配信</th><th>曲</th><th>時間</th><th>コメント</th><th>申請日</th>
+          ${_tsFilter === 'pending' ? '<th>操作</th>' : '<th>審査日</th>'}
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => {
+          const { streamTitle, songTitle, date } = resolveTs(item);
+          const chLabel = item.channelCode === 'new' ? '歌った曲リスト' : '別ch';
+          const createdAt  = item.createdAt  ? fmtDate(new Date(item.createdAt))  : '—';
+          const reviewedAt = item.reviewedAt ? fmtDate(new Date(item.reviewedAt)) : '—';
+          const actionCell = _tsFilter === 'pending'
+            ? `<td>
+                <button class="btn ghost" data-ts-approve="${item.id}" type="button" style="margin-right:4px">承認</button>
+                <button class="btn ghost" data-ts-reject="${item.id}"  type="button">却下</button>
+               </td>`
+            : `<td>${reviewedAt}</td>`;
+          return `
+            <tr>
+              <td>${chLabel}</td>
+              <td title="${escapeHtml(streamTitle)}">${escapeHtml(streamTitle.length > 20 ? streamTitle.slice(0, 20) + '…' : streamTitle)}<br><small>${escapeHtml(date)}</small></td>
+              <td>${escapeHtml(songTitle)}</td>
+              <td><strong>${fmtSeconds(item.timeSeconds)}</strong></td>
+              <td>${escapeHtml(item.submitterNote || '—')}</td>
+              <td>${createdAt}</td>
+              ${actionCell}
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function loadTimestamps() {
+  $('#ts-status').textContent = '読み込み中…';
+  $('#ts-table-wrap').innerHTML = '<p class="admin-note">読み込み中…</p>';
+  const approveAllBtn = $('#ts-approve-all');
+  if (approveAllBtn) approveAllBtn.disabled = true;
+  try {
+    const data = await adminApi(`timestamps?status=${_tsFilter}&limit=100`);
+    $('#ts-status').textContent = '';
+    renderTimestamps(data.items || []);
+  } catch (err) {
+    $('#ts-status').textContent = `エラー: ${err.message || err}`;
+    $('#ts-table-wrap').innerHTML = '';
+  }
+}
+
+async function initTimestamps() {
+  // 配信・曲名参照用にデータをキャッシュ
+  try { _tsData = await loadAll(); } catch (_) {}
+
+  document.querySelectorAll('.ts-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (_tsBusy) return;
+      document.querySelectorAll('.ts-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _tsFilter = btn.dataset.tsFilter;
+      loadTimestamps();
+    });
+  });
+
+  $('#ts-approve-all')?.addEventListener('click', async () => {
+    const pending = _tsFilter === 'pending' ? _tsItems.slice() : [];
+    if (!pending.length || _tsBusy) return;
+    if (!confirm(`表示中の${pending.length}件をすべて承認しますか？`)) return;
+
+    _tsBusy = true;
+    const approveAllBtn = $('#ts-approve-all');
+    const rowButtons = $('#ts-table-wrap')?.querySelectorAll('button');
+    if (approveAllBtn) {
+      approveAllBtn.disabled = true;
+      approveAllBtn.textContent = '一括承認中…';
+    }
+    rowButtons?.forEach(btn => { btn.disabled = true; });
+
+    let succeeded = 0;
+    const failed = [];
+    for (let i = 0; i < pending.length; i++) {
+      const item = pending[i];
+      $('#ts-status').textContent = `一括承認中… ${i + 1}/${pending.length}`;
+      try {
+        await adminApi(`timestamps/${item.id}/approve`, {});
+        succeeded++;
+      } catch (err) {
+        failed.push({ item, error: err });
+      }
+    }
+
+    _tsBusy = false;
+    if (failed.length) {
+      $('#ts-status').textContent = `${succeeded}件を承認しました。${failed.length}件は失敗しました。`;
+    } else {
+      $('#ts-status').textContent = `${succeeded}件を一括承認しました`;
+    }
+    loadTimestamps();
+  });
+
+  $('#ts-table-wrap').addEventListener('click', async (e) => {
+    if (_tsBusy) return;
+    const approveBtn = e.target.closest('[data-ts-approve]');
+    const rejectBtn  = e.target.closest('[data-ts-reject]');
+    if (!approveBtn && !rejectBtn) return;
+
+    const id     = approveBtn ? approveBtn.dataset.tsApprove : rejectBtn.dataset.tsReject;
+    const action = approveBtn ? 'approve' : 'reject';
+    const label  = approveBtn ? '承認' : '却下';
+
+    if (!confirm(`この申請を${label}しますか？`)) return;
+    $('#ts-status').textContent = `${label}中…`;
+    try {
+      await adminApi(`timestamps/${id}/${action}`, {});
+      $('#ts-status').textContent = `${label}しました`;
+      loadTimestamps();
+    } catch (err) {
+      $('#ts-status').textContent = `エラー: ${err.message || err}`;
+    }
+  });
+
+  loadTimestamps();
+}
+
+/* ─── 音楽動画管理 ───────────────────────────────────────────────────────── */
+
+let _mvVideos = [];
+
+function _youtubeThumb(url) {
+  try {
+    const id = new URL(url).searchParams.get('v') || new URL(url).pathname.split('/').pop();
+    return id ? `https://i.ytimg.com/vi/${id}/mqdefault.jpg` : '';
+  } catch (_) { return ''; }
+}
+
+function _renderMvList() {
+  const wrap = $('#mv-list-wrap');
+  const badge = $('#mv-count');
+  if (!wrap) return;
+  if (badge) badge.textContent = _mvVideos.length;
+  if (!_mvVideos.length) {
+    wrap.innerHTML = '<p class="admin-note">動画が登録されていません</p>';
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>ID</th><th>サムネ</th><th>タイトル</th><th>種別</th><th>追加情報</th><th>公開日</th><th></th></tr></thead>
+        <tbody>
+          ${_mvVideos.map((v, i) => {
+            const typeLabel = { original: 'オリ曲', office: 'Re:AcT', character: 'キャラ', cover: 'カバー' }[v.type] || v.type;
+            const extra = v.type === 'cover' ? (v.originalArtist || '—') : v.type === 'character' ? (v.character || '—') : '—';
+            return `
+            <tr>
+              <td style="font-size:11px;color:var(--ink-mute)">${v.id}</td>
+              <td>${v.url ? `<img src="${_youtubeThumb(v.url)}" width="80" alt="" referrerpolicy="no-referrer" style="border-radius:4px">` : '—'}</td>
+              <td>${v.title || '—'}</td>
+              <td>${typeLabel}</td>
+              <td style="font-size:12px">${extra}</td>
+              <td>${v.publishedAt || '—'}</td>
+              <td><button class="btn ghost" data-mv-del="${i}" type="button" style="padding:4px 10px;font-size:12px">削除</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  wrap.querySelectorAll('[data-mv-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.mvDel);
+      if (!confirm(`「${_mvVideos[idx]?.title}」を削除しますか？`)) return;
+      _mvVideos.splice(idx, 1);
+      _saveMvData();
+    });
+  });
+}
+
+function _saveMvData() {
+  // サーバーサイドAPIなし: JSONをダウンロードしてリポジトリにコミットする
+  const json = JSON.stringify({ videos: _mvVideos }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'music.json'; a.click();
+  URL.revokeObjectURL(url);
+  const status = $('#mv-status');
+  if (status) status.textContent = 'music.json をダウンロードしました。docs/data/ に上書きしてコミットしてください。';
+  _renderMvList();
+}
+
+function initMusicVideos() {
+  const addBtn = $('#mv-add-btn');
+  if (!addBtn) return;
+
+  // music.json を読み込む
+  fetch('/data/music.json')
+    .then(r => r.json())
+    .then(j => { _mvVideos = j.videos || []; _renderMvList(); })
+    .catch(() => { _mvVideos = []; _renderMvList(); });
+
+  $('#mv-download-btn')?.addEventListener('click', _saveMvData);
+
+  addBtn.addEventListener('click', () => {
+    const url       = $('#mv-url')?.value.trim();
+    const title     = $('#mv-title')?.value.trim();
+    const type      = $('#mv-type')?.value || 'original';
+    const artist    = $('#mv-artist')?.value.trim() || null;
+    const character = $('#mv-character')?.value.trim() || null;
+    const date      = $('#mv-date')?.value || '';
+    const manualId  = $('#mv-id')?.value.trim();
+
+    if (!url || !title) {
+      const s = $('#mv-status');
+      if (s) s.textContent = 'URL とタイトルは必須です';
+      return;
+    }
+
+    const id = manualId || `mv${String(Date.now()).slice(-6)}`;
+    if (_mvVideos.find(v => v.id === id)) {
+      const s = $('#mv-status');
+      if (s) s.textContent = `ID "${id}" はすでに存在します`;
+      return;
+    }
+
+    _mvVideos.push({
+      id,
+      title,
+      type,
+      ...(type === 'cover'     ? { originalArtist: artist || null } : {}),
+      ...(type === 'character' ? { character: character || null }   : {}),
+      url,
+      publishedAt: date || null,
+    });
+
+    // フォームリセット
+    ['mv-url','mv-title','mv-artist','mv-character','mv-date','mv-id'].forEach(id => {
+      const el = $(`#${id}`);
+      if (el) el.value = '';
+    });
+
+    _renderMvList();
+    const status = $('#mv-status');
+    if (status) status.textContent = `「${title}」を追加しました。準備ができたら「music.json をダウンロード」してください。`;
+  });
+}
+
+/* ─── 起動 ───────────────────────────────────────────────────────────────── */
+
+$('#refresh-status').addEventListener('click', loadStatus);
 initManagement();
 loadStatus();
+initTimestamps();
+initMusicVideos();

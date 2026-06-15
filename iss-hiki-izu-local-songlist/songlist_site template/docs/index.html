@@ -3,37 +3,64 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>一色イズ　歌唱データベース｜歌った曲リスト・ランキング・検索</title>
-<meta name="description" content="一色イズさんの歌った曲リスト、歌唱回数ランキング、検索をまとめたローカル試作版の歌唱データベース。">
+<title>一色イズ 歌唱データベース｜歌った曲リスト・ランキング・検索</title>
+<meta name="description" content="一色イズさんの歌った曲リスト、歌唱回数ランキング、歌枠タイムライン、キー・ジャンル検索をまとめたファンメイド歌唱データベース。">
 <meta name="robots" content="index,follow,max-image-preview:large">
-<link rel="canonical" href="/">
+<meta name="theme-color" content="#f0fbff">
+<link rel="canonical" href="https://isshiki-izu-songlist.pages.dev/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="一色イズ　歌唱データベース">
-<meta property="og:title" content="一色イズ　歌唱データベース">
-<meta property="og:description" content="一色イズさんの歌った曲リスト、ランキング、検索をまとめたローカル試作版データベース。">
-<meta property="og:url" content="/">
-<meta property="og:image" content="assets/site-icon.svg">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:site_name" content="一色イズ 歌唱データベース">
+<meta property="og:title" content="一色イズ 歌唱データベース">
+<meta property="og:description" content="一色イズさんの歌った曲リスト、ランキング、歌枠タイムライン、キー・ジャンル検索をまとめたファンメイドデータベース。">
+<meta property="og:url" content="https://isshiki-izu-songlist.pages.dev/">
+<meta property="og:image" content="https://isshiki-izu-songlist.pages.dev/assets/site-icon.svg">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="一色イズ 歌唱データベース">
+<meta name="twitter:description" content="一色イズさんの歌った曲リスト、ランキング、歌枠タイムライン、キー・ジャンル検索をまとめたファンメイドデータベース。">
+<meta name="twitter:image" content="https://isshiki-izu-songlist.pages.dev/assets/site-icon.svg">
 <link rel="icon" type="image/svg+xml" href="assets/site-icon.svg">
-<link rel="apple-touch-icon" href="assets/site-icon.svg">
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="preload" href="/data/meta.json" as="fetch" type="application/json">
-<link rel="preload" href="/data/songs.json" as="fetch" type="application/json">
-<link rel="preload" href="/data/streams.json" as="fetch" type="application/json">
-<script type="importmap">
+<link rel="preload" href="assets/site-icon.svg" as="image" fetchpriority="high">
+<link rel="preload" href="assets/fonts/noto-sans-jp-kanau-400.woff2" as="font" type="font/woff2" crossorigin>
+<!-- YouTube サムネ(i.ytimg.com)は全タブで多用、プレイヤー(youtube.com)はビュアーで使用。
+     接続(DNS+TLS)を事前に温めてサムネ表示・ビュアー起動を速める。 -->
+<link rel="preconnect" href="https://i.ytimg.com">
+<link rel="preconnect" href="https://www.youtube.com">
+<link rel="dns-prefetch" href="https://i.ytimg.com">
+<link rel="dns-prefetch" href="https://www.youtube.com">
+<!-- Chart.js は dashboard/analytics で遅延ロードする外部CDN。接続を事前に温め、
+     データ取得と並行して低優先で先読みしてチャート初描画を早める。
+     charts.js は crossorigin 無しの <script> 注入なので preload も無しで一致させ二重取得を防ぐ。 -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" as="script" fetchpriority="low">
+<link rel="preload" href="/data/meta.json" as="fetch" type="application/json" crossorigin>
+<link rel="preload" href="/data/songs.json" as="fetch" type="application/json" crossorigin fetchpriority="low">
+<link rel="preload" href="/data/streams.json" as="fetch" type="application/json" crossorigin fetchpriority="low">
+<link rel="modulepreload" href="js/main.js?v=20260616-ui-port">
+<link rel="preload" href="css/theme.css?v=20260616-ui-port" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<style>
+:root,:root[data-theme="light"],:root[data-theme="auto"]{color-scheme:light;--bg-1:#f0fbff;--bg-2:#c2ecff;--bg-radial-1:#fff;--bg-radial-2:#ffd6e7;--surface:#fff;--surface-2:#f6fbff;--surface-3:#ebf6fb;--surface-glass:rgba(255,255,255,.85);--border:#c2ecff;--border-soft:#e2f1f9;--border-strong:#9bdcf7;--ink:#1f4861;--ink-soft:#3f6f87;--ink-mute:#4f748b;--primary:#4ab2dc;--primary-strong:#1f789f;--primary-soft:#dff5ff;--accent:#ff9eb5;--accent-strong:#c85075;--accent-soft:#ffd6e7;--gold:#f4c44a;--silver:#b8c9d4;--bronze:#d49a6a;--green-bg:#d8f5e0;--green-text:#2e7044;--orange-bg:#fde7d8;--orange-text:#965123;--red:#e23939;--shadow-sm:0 2px 8px rgba(106,184,219,.15);--shadow:0 8px 24px rgba(106,184,219,.22);--shadow-lg:0 16px 40px rgba(106,184,219,.28);--radius-sm:12px;--radius:18px;--radius-lg:28px;--tnum:"tnum"}@media(prefers-color-scheme:dark){:root[data-theme="auto"]{color-scheme:dark;--bg-1:#0a1828;--bg-2:#142a44;--bg-radial-1:#1a3252;--bg-radial-2:#2a1a3a;--surface:#14253a;--surface-2:#1a2d44;--surface-3:#20354f;--surface-glass:rgba(20,37,58,.85);--border:#2a4060;--border-soft:#1f3650;--border-strong:#3b5d85;--ink:#e5f0f9;--ink-soft:#b0c5d8;--ink-mute:#8fa8c0;--primary:#6cc6ec;--primary-strong:#9bdcf7;--primary-soft:#1d3550;--accent:#ff9eb5;--accent-strong:#ffb8d4;--accent-soft:#4a2540;--gold:#f4c44a;--silver:#d0d8e0;--bronze:#d49a6a;--green-bg:#1f4030;--green-text:#7ad99c;--orange-bg:#4a2c1a;--orange-text:#ffb084;--red:#ff7575;--shadow-sm:0 2px 8px rgba(0,0,0,.4);--shadow:0 8px 24px rgba(0,0,0,.5);--shadow-lg:0 16px 40px rgba(0,0,0,.6)}}:root[data-theme="dark"]{color-scheme:dark;--bg-1:#0a1828;--bg-2:#142a44;--bg-radial-1:#1a3252;--bg-radial-2:#2a1a3a;--surface:#14253a;--surface-2:#1a2d44;--surface-3:#20354f;--surface-glass:rgba(20,37,58,.85);--border:#2a4060;--border-soft:#1f3650;--border-strong:#3b5d85;--ink:#e5f0f9;--ink-soft:#b0c5d8;--ink-mute:#8fa8c0;--primary:#6cc6ec;--primary-strong:#9bdcf7;--primary-soft:#1d3550;--accent:#ff9eb5;--accent-strong:#ffb8d4;--accent-soft:#4a2540;--gold:#f4c44a;--silver:#d0d8e0;--bronze:#d49a6a;--green-bg:#1f4030;--green-text:#7ad99c;--orange-bg:#4a2c1a;--orange-text:#ffb084;--red:#ff7575;--shadow-sm:0 2px 8px rgba(0,0,0,.4);--shadow:0 8px 24px rgba(0,0,0,.5);--shadow-lg:0 16px 40px rgba(0,0,0,.6)}@font-face{font-family:"Izu Noto Sans JP";font-style:normal;font-display:fallback;font-weight:400;src:url("assets/fonts/noto-sans-jp-kanau-400.woff2") format("woff2")}*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}body{font-family:"Izu Noto Sans JP","Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN","BIZ UDPGothic","Yu Gothic","Meiryo",system-ui,sans-serif;background:radial-gradient(circle at 15% 5%,var(--bg-radial-1) 0%,transparent 38%),radial-gradient(circle at 85% 95%,var(--bg-radial-2) 0%,transparent 32%),linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 100%);background-attachment:fixed;color:var(--ink);min-height:100vh;line-height:1.7;-webkit-font-smoothing:antialiased}a{color:var(--primary-strong);text-decoration:none}button,input,select,textarea{font-family:inherit;color:inherit}.container{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:0 20px}main.container{padding-top:28px;padding-bottom:80px}.topbar{position:sticky;top:0;z-index:50;background:var(--surface-glass);backdrop-filter:saturate(140%) blur(10px);-webkit-backdrop-filter:saturate(140%) blur(10px);border-bottom:1px solid var(--border-soft)}.topbar-inner{display:flex;align-items:center;justify-content:space-between;gap:12px;height:56px}.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}.brand-icon{width:28px;height:28px;flex:0 0 auto;border-radius:50%;box-shadow:var(--shadow-sm)}.brand-text{display:flex;flex-direction:column;line-height:1.15}.brand-title{font-size:15px;font-weight:700;letter-spacing:0}.brand-dim{color:var(--ink-mute);font-weight:500}.brand-sub{font-size:10.5px;color:var(--accent-strong);letter-spacing:.1em;font-weight:600}.topbar-actions{display:flex;align-items:center;gap:8px}.topbar-actions .topbar-official-links{margin-left:4px;padding-left:8px;border-left:1px solid var(--border-soft)}.mobile-menu-state,.mobile-menu-toggle{display:none}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:var(--surface);border:2px solid var(--border);border-radius:50%;color:var(--ink-soft);cursor:pointer}.help-btn,.help-close{font-size:17px;font-weight:800;line-height:1}.channel-switch{display:inline-flex;background:var(--surface);border:2px solid var(--border);border-radius:999px;padding:3px;gap:2px;height:36px;overflow:hidden}.ch-btn{background:transparent;border:0;color:var(--ink-soft);padding:0 12px;border-radius:999px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}.ch-btn.active{background:linear-gradient(135deg,var(--primary),var(--primary-strong));color:#fff;box-shadow:var(--shadow-sm)}.ch-btn[data-channel=all].active{background:linear-gradient(135deg,var(--accent),var(--accent-strong))}.ch-btn[data-channel=old].active{background:linear-gradient(135deg,var(--gold),#c8a02a)}.audience-switch .ch-btn[data-audience=singer].active{background:linear-gradient(135deg,var(--accent),var(--accent-strong))}.theme-toggle{display:inline-flex;align-items:center;gap:6px;height:36px;background:var(--surface);border:2px solid var(--border);border-radius:999px;color:var(--ink-soft);cursor:pointer;padding:0 14px;font-size:12px;font-weight:600}.theme-icon{font-size:14px}.theme-label{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-mute)}.hero{background:var(--surface);border-radius:var(--radius-lg);padding:36px 32px 28px;border:2px solid var(--border-soft);box-shadow:var(--shadow);position:relative;overflow:hidden}.hero:after{content:"";position:absolute;bottom:16px;right:22px;width:20px;height:20px;border-radius:50%;background:var(--primary-soft);opacity:.5}.hero-title{display:flex;align-items:center;justify-content:center;gap:10px;font-size:clamp(20px,3.5vw,28px);text-align:center;letter-spacing:.04em;color:var(--ink);margin-bottom:4px}.hero-title-icon{width:32px;height:32px;flex:0 0 auto;filter:drop-shadow(0 4px 10px rgba(55,166,217,.2))}.hero-sub{text-align:center;color:var(--ink);font-size:12px;letter-spacing:.1em;margin-bottom:6px}.hero-description{max-width:760px;margin:0 auto 10px;color:var(--ink);font-size:12px;line-height:1.7;text-align:center}.hero-updated{text-align:center;color:var(--ink);font-size:12px;margin-bottom:22px;min-height:22px}.hero-updated strong{color:var(--ink)}.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.stat-card{background:linear-gradient(180deg,var(--surface-2),var(--surface-3));border:2px solid var(--border);border-radius:var(--radius);padding:16px 14px;text-align:center;min-height:88px}.stat-card.placeholder{opacity:.4}.tabs{display:flex;gap:6px;margin:26px 0 18px;flex-wrap:wrap;overflow-x:auto;padding-bottom:4px}.tab-btn{background:var(--surface);border:2px solid var(--border);color:var(--ink-soft);padding:9px 18px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}.tab-btn.active{background:linear-gradient(135deg,var(--primary),var(--primary-strong));border-color:var(--primary-strong);color:#fff;box-shadow:var(--shadow-sm)}.panels{min-height:720px}.panel{display:none}.panel.active{display:block}@media(max-width:700px){body{overflow-x:hidden}.container{width:100%;padding:0 clamp(12px,3vw,20px)}.brand-dim,.brand-sub,.theme-label{display:none}.topbar-inner{align-items:flex-start;flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-bottom:8px;gap:8px}.brand{flex:1 1 calc(100% - 46px);max-width:calc(100% - 46px);min-width:0}.brand-title{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mobile-menu-toggle{appearance:none;display:inline-flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:36px;padding:5px 12px;border:2px solid var(--border);border-radius:999px;background:var(--surface);color:var(--ink-soft);font-family:inherit;font-size:12px;font-weight:800;line-height:1.2;box-shadow:var(--shadow-sm);cursor:pointer;position:relative;z-index:2;touch-action:manipulation}.mobile-menu-state:checked+.mobile-menu-toggle,.mobile-menu-toggle[aria-expanded=true]{border-color:var(--primary-strong);color:var(--primary-strong);background:var(--primary-soft)}.mobile-menu-icon{font-size:14px;line-height:1}.topbar-actions{flex:1 1 100%;width:100%;display:none;gap:5px;flex-wrap:wrap;justify-content:flex-start;min-width:0;padding:8px;border:1px solid var(--border-soft);border-radius:18px;background:var(--surface-glass);box-shadow:var(--shadow-sm)}.topbar-actions.is-open,.mobile-menu-state:checked~.topbar-actions{display:grid!important;grid-template-columns:1fr auto auto auto;align-items:center;justify-content:end;position:relative;z-index:1}.topbar-actions .channel-switch{grid-column:1/-1}.topbar-actions .audience-switch{grid-column:1/-1}.topbar-actions .topbar-official-links{grid-column:1;display:grid;grid-template-columns:repeat(3,minmax(0,auto));gap:5px;justify-content:flex-start;align-self:center;padding-left:0;padding-top:0;border-left:0;border-top:0}.topbar-actions .topbar-official-label{grid-column:1/-1}.topbar-actions .theme-toggle,.topbar-actions .icon-btn{justify-self:end;width:36px;height:36px;min-width:36px;padding:0}.topbar-actions .theme-toggle{grid-column:2}.theme-toggle{width:36px;padding:0;justify-content:center}.tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));background:var(--surface-glass);border:1px solid var(--border-soft);border-radius:20px;box-shadow:var(--shadow);gap:8px;margin:20px 0 16px;overflow:visible;padding:10px}.tab-btn{justify-content:center;min-width:0;padding:9px 10px;font-size:12px;overflow:hidden;text-overflow:ellipsis}.hero{padding:24px 18px 20px}.hero-title{font-size:19px;line-height:1.45;flex-wrap:wrap}.hero-title-icon{width:28px;height:28px}.stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}.stat-card{padding:12px 8px;min-height:76px}}
+.tabs{display:inline-flex;align-items:center;gap:6px;max-width:100%;width:fit-content;margin:26px 0 18px;padding:6px;border:1px solid var(--border);border-radius:18px;background:color-mix(in srgb,var(--surface) 72%,var(--surface-3) 28%);box-shadow:var(--shadow-sm);overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tab-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:7px 15px;border:1px solid transparent;border-radius:999px;background:transparent;color:var(--ink-mute);font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap}.tab-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex:0 0 18px;color:currentColor}.tab-icon svg{width:18px;height:18px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.tab-btn.active,.tab-btn[aria-selected=true]{background:color-mix(in srgb,var(--surface) 74%,var(--primary-soft) 26%);color:var(--primary-strong);border-color:color-mix(in srgb,var(--primary) 42%,var(--border));box-shadow:var(--shadow-sm),inset 0 0 0 1px color-mix(in srgb,var(--primary) 16%,transparent)}@media(max-width:700px){.tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:8px;margin:20px 0 16px;padding:10px;border-radius:20px;overflow:visible}.tab-btn{justify-content:center;min-width:0;padding:9px 10px;font-size:12px;overflow:hidden;text-overflow:ellipsis}}
+</style>
+<link rel="preload" href="css/components.css?v=20260616-ui-port" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" href="css/views.css?v=20260616-ui-port" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="css/theme.css?v=20260616-ui-port"><link rel="stylesheet" href="css/components.css?v=20260616-ui-port"><link rel="stylesheet" href="css/views.css?v=20260616-ui-port"></noscript>
+<script type="application/ld+json">
 {
-  "imports": {
-    "fuse": "https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.mjs"
-  }
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "一色イズ 歌唱データベース",
+  "alternateName": "Izu Songlist",
+  "url": "https://isshiki-izu-songlist.pages.dev/",
+  "inLanguage": "ja",
+  "applicationCategory": "EntertainmentApplication",
+  "operatingSystem": "Any",
+  "description": "一色イズさんの歌った曲リスト、歌唱回数ランキング、歌枠タイムライン、キー・ジャンル検索をまとめたファンメイド歌唱データベース。",
+  "isAccessibleForFree": true
 }
 </script>
-<link rel="modulepreload" href="js/main.js?v=20260615-playlists">
-<link rel="stylesheet" href="css/theme.css">
-<link rel="stylesheet" href="css/components.css">
-<link rel="stylesheet" href="css/views.css">
 </head>
 <body>
 
@@ -46,7 +73,7 @@
 
 <header class="topbar">
   <div class="topbar-inner container">
-    <a class="brand" href="./" aria-label="歌唱データベース ホーム">
+    <a class="brand" href="./" aria-label="一色イズ 歌唱データベース ホーム">
       <img class="brand-icon" src="assets/site-icon.svg" alt="" width="28" height="28">
       <span class="brand-text">
         <span class="brand-title">一色イズ <span class="brand-dim">Database</span></span>
@@ -55,7 +82,7 @@
     </a>
     <input class="mobile-menu-state" id="mobile-menu-state" type="checkbox" aria-hidden="true">
     <label class="mobile-menu-toggle" id="mobile-menu-toggle" for="mobile-menu-state" role="button" tabindex="0" aria-expanded="false" aria-controls="topbar-actions">
-      <span id="mobile-menu-label">メインch / リスナー</span>
+      <span id="mobile-menu-label">歌った曲リスト / リスナー</span>
       <span class="mobile-menu-icon" aria-hidden="true">☰</span>
     </label>
     <div class="topbar-actions" id="topbar-actions">
@@ -66,13 +93,15 @@
         <button class="ch-btn active" data-audience="listener" type="button">リスナー</button>
         <button class="ch-btn"        data-audience="singer" type="button">配信者</button>
       </div>
-      <nav class="official-links topbar-official-links" aria-label="公式リンク">
-        <span class="topbar-official-label">Official Channel</span>
-        <button class="official-link youtube" type="button" data-ch-modal="new" aria-label="チャンネル紹介"><img class="official-link-avatar" src="https://yt3.googleusercontent.com/S7IoWZcIetb6pyLz2MOaeED82tlocv0N87QXfjWyhRlhzyDC2fQVIh3rejXB0wCt5CMzXYry=s900-c-k-c0x00ffffff-no-rj" alt="" loading="lazy" referrerpolicy="no-referrer"></button>
-        <a class="official-link x-link" href="https://x.com/isshiki_is" target="_blank" rel="noopener" aria-label="X"><svg class="official-link-logo official-link-logo--x" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.2 2.3h3.3l-7.2 8.3 8.5 11.2h-6.7L11 15l-6 6.8H1.7l7.8-8.9L1.2 2.3h6.9l4.7 6.3zM17 19.8h1.8L7.1 4.1H5.2z"/></svg></a>
+      <nav class="official-links topbar-official-links" aria-label="一色イズ 公式リンク">
+        <span class="topbar-official-label">Official</span>
+        <button class="official-link ch-avatar ch-avatar--new" type="button" data-ch-modal="new" title="一色イズ YouTube" aria-label="一色イズ YouTube">
+          <img class="ch-avatar-img" src="https://yt3.googleusercontent.com/S7IoWZcIetb6pyLz2MOaeED82tlocv0N87QXfjWyhRlhzyDC2fQVIh3rejXB0wCt5CMzXYry=s900-c-k-c0x00ffffff-no-rj" alt="一色イズ アイコン" width="26" height="26" loading="lazy" referrerpolicy="no-referrer">
+        </button>
+        <a class="official-link x-link" href="https://x.com/isshiki_is" target="_blank" rel="noopener" title="一色イズ X" aria-label="一色イズ X">X</a>
       </nav>
-      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="テーマ切替">
-        <span class="theme-icon" id="theme-icon">🌗</span>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="テーマ切替" data-tooltip="テーマ切替">
+        <span class="theme-icon" id="theme-icon"></span>
         <span class="theme-label" id="theme-label">auto</span>
       </button>
       <button class="icon-btn help-btn" id="help-btn" type="button" title="使い方" aria-label="使い方を表示">
@@ -89,8 +118,10 @@
 
   <!-- Hero -->
   <section class="hero" id="hero">
-    <h1 id="page-title" class="hero-title">一色イズ　歌唱データベース</h1>
+    <div class="hero-ch-bg" id="hero-ch-bg" aria-hidden="true"></div>
+    <h1 id="page-title" class="hero-title"><img class="hero-title-icon" src="assets/site-icon.svg" alt="" width="32" height="32" fetchpriority="high" decoding="sync">一色イズ 歌唱データベース</h1>
     <p class="hero-sub">~ Izu Song Archive ~</p>
+    <p class="hero-description">一色イズ歌枠で歌われた楽曲を、曲名・アーティスト・ランキング・配信タイムラインから探せる歌唱データベースサイトです。</p>
     <p class="hero-updated" id="updated-info">読み込み中…</p>
     <div class="stats-grid" id="stats-grid">
       <div class="stat-card placeholder"></div>
@@ -103,25 +134,39 @@
   </section>
 
   <!-- Tabs -->
-  <nav class="tabs" role="tablist" aria-label="セクション">
-    <button class="tab-btn active" data-tab="dashboard" role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h5v7H4z"/><path d="M10 4h5v16h-5z"/><path d="M16 9h4v11h-4z"/></svg> ダッシュボード</button>
-    <button class="tab-btn" data-tab="ranking"   role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v3a4 4 0 0 1-8 0z"/><path d="M6 5H3v2a4 4 0 0 0 4 4"/><path d="M18 5h3v2a4 4 0 0 1-4 4"/><path d="M12 11v5"/><path d="M8 20h8"/><path d="M9 16h6v4H9z"/></svg> ランキング</button>
-    <button class="tab-btn" data-tab="songs"     role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg> 全曲リスト</button>
-    <button class="tab-btn" data-tab="timeline"  role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v4"/><path d="M17 3v4"/><path d="M4 8h16"/><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 13h3"/><path d="M13 13h3"/><path d="M8 17h3"/></svg> タイムライン</button>
-    <button class="tab-btn" data-tab="lives"     role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg> ライブ情報</button>
-    <button class="tab-btn" data-tab="analytics"  role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3-4 4 2 5-7"/><circle cx="7" cy="15" r="1"/><circle cx="10" cy="11" r="1"/><circle cx="14" cy="13" r="1"/><circle cx="19" cy="6" r="1"/></svg> アナリティクス</button>
-    <button class="tab-btn" data-tab="playlists"  role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h10"/><path d="M5 11h10"/><path d="M5 16h7"/><path d="M18 8v10l3-2 3 2V8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1z"/></svg> プレイリスト</button>
-  </nav>
+    <nav class="tabs" role="tablist" aria-label="セクション">
+      <button class="tab-btn active" type="button" data-tab="dashboard" role="tab" aria-selected="true"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 13h5v7H4z"/><path d="M10 4h5v16h-5z"/><path d="M16 9h4v11h-4z"/></svg></span><span>ダッシュボード</span></button>
+      <button class="tab-btn" type="button" data-tab="ranking" role="tab" aria-selected="false"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 4h8v3a4 4 0 0 1-8 0z"/><path d="M6 5H3v2a4 4 0 0 0 4 4"/><path d="M18 5h3v2a4 4 0 0 1-4 4"/><path d="M12 11v5"/><path d="M8 20h8"/><path d="M9 16h6v4H9z"/></svg></span><span>ランキング</span></button>
+      <button class="tab-btn" type="button" data-tab="songs" role="tab" aria-selected="false"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></span><span>全曲リスト</span></button>
+      <button class="tab-btn" type="button" data-tab="timeline" role="tab" aria-selected="false"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v4"/><path d="M17 3v4"/><path d="M4 8h16"/><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 13h3"/><path d="M13 13h3"/><path d="M8 17h3"/></svg></span><span>タイムライン</span></button>
+      <button class="tab-btn" type="button" data-tab="analytics" role="tab" aria-selected="false"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3-4 4 2 5-7"/><circle cx="7" cy="15" r="1"/><circle cx="10" cy="11" r="1"/><circle cx="14" cy="13" r="1"/><circle cx="19" cy="6" r="1"/></svg></span><span>アナリティクス</span></button>
+      <button class="tab-btn" type="button" data-tab="playlists" role="tab" aria-selected="false"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h10"/><path d="M5 11h10"/><path d="M5 16h7"/><path d="M18 8v10l3-2 3 2V8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1z"/></svg></span><span>プレイリスト</span></button>
+    </nav>
+
+    <div class="mobile-tab-nav" id="mobile-tab-nav" aria-label="セクション移動">
+      <button class="mobile-tab-toggle" id="mobile-tab-toggle" type="button" aria-expanded="false" aria-controls="mobile-tab-panel">
+        <span class="mobile-tab-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span class="mobile-tab-current" id="mobile-tab-current">ダッシュボード</span>
+      </button>
+      <div class="mobile-tab-panel" id="mobile-tab-panel" hidden>
+        <button class="mobile-tab-item is-active" type="button" data-mobile-tab="dashboard">ダッシュボード</button>
+        <button class="mobile-tab-item" type="button" data-mobile-tab="ranking">ランキング</button>
+        <button class="mobile-tab-item" type="button" data-mobile-tab="songs">全曲リスト</button>
+        <button class="mobile-tab-item" type="button" data-mobile-tab="timeline">タイムライン</button>
+        <button class="mobile-tab-item" type="button" data-mobile-tab="analytics">アナリティクス</button>
+        <button class="mobile-tab-item" type="button" data-mobile-tab="playlists">プレイリスト</button>
+      </div>
+    </div>
 
   <!-- Panels -->
   <div class="panels">
-    <section class="panel active" id="panel-dashboard"  role="tabpanel"></section>
-    <section class="panel"        id="panel-ranking"    role="tabpanel"></section>
-    <section class="panel"        id="panel-songs"      role="tabpanel"></section>
-    <section class="panel"        id="panel-timeline"   role="tabpanel"></section>
-    <section class="panel"        id="panel-lives"      role="tabpanel"></section>
-    <section class="panel"        id="panel-analytics"  role="tabpanel"></section>
-    <section class="panel"        id="panel-playlists"  role="tabpanel"></section>
+    <section class="panel active" id="panel-dashboard" role="tabpanel"></section>
+    <section class="panel"        id="panel-ranking"   role="tabpanel"></section>
+    <section class="panel"        id="panel-songs"     role="tabpanel"></section>
+    <section class="panel"        id="panel-timeline"  role="tabpanel"></section>
+    <section class="panel"        id="panel-analytics" role="tabpanel"></section>
+    <section class="panel"        id="panel-player"    role="main" aria-label="配信プレイヤー"></section>
+    <section class="panel"        id="panel-playlists" role="tabpanel" aria-label="プレイリスト"></section>
   </div>
 
   <div id="loading" class="state-card" hidden>
@@ -129,7 +174,7 @@
     <div class="msg">スプレッドシートからデータを取得中…</div>
   </div>
   <div id="error" class="state-card" hidden>
-    <div class="msg">⚠️ データの取得に失敗しました</div>
+    <div class="msg">データの取得に失敗しました</div>
     <div class="err-detail" id="err-detail"></div>
     <button class="btn primary" id="retry-btn" type="button">再試行</button>
   </div>
@@ -138,8 +183,9 @@
 
 <footer class="site-footer">
   <p>
-    Made with <span class="heart">♡</span> for fans &nbsp;·&nbsp;
-    <a href="#" target="_blank" rel="noopener">データソース</a>
+    Made with love for 一色イズ ファン &nbsp;·&nbsp;
+    <a href="./songlist.csv" target="_blank" rel="noopener">データソース</a> &nbsp;·&nbsp;
+    <a href="#" target="_blank" rel="noopener">お問い合わせ</a>
   </p>
 </footer>
 
@@ -157,66 +203,87 @@
       <div class="guide-step">
         <span>1</span>
         <strong>範囲を選ぶ</strong>
-        <p>メインch・サブch・全期間を切り替えて、見たいデータだけに絞ります。</p>
+        <p>表示モードを切り替えて、閲覧向け・選曲向けの使い方を選べます。</p>
       </div>
       <div class="guide-step">
         <span>2</span>
         <strong>曲を探す</strong>
-        <p>全曲リストで曲名、アーティスト、ジャンル、タグから探せます。</p>
+        <p>全曲リスト・ランキング・検索で曲名・アーティスト・ジャンルから探せます。</p>
       </div>
       <div class="guide-step">
         <span>3</span>
-        <strong>履歴を見る</strong>
-        <p>曲詳細やタイムラインから、どの歌枠で歌ったか確認できます。</p>
+        <strong>歌枠を見る</strong>
+        <p>タイムラインから歌枠を選んで、その場で動画を再生できます。</p>
       </div>
     </div>
     <div class="guide-sections">
       <section class="guide-section">
-        <h3>データ範囲とモード</h3>
+        <h3>データ範囲とチャンネル</h3>
         <ul>
-          <li>ヘッダーのメインch・サブch・全期間は、表示する歌唱データの範囲です。</li>
+          <li>ヘッダーの <strong>歌った曲リスト</strong> で現在の歌唱データ範囲を確認できます。</li>
+          <li>ヘッダー右の <strong>公式アイコン</strong> から公式チャンネルの情報や X へ移動できます。</li>
           <li>リスナーモードは閲覧向け、配信者モードは選曲・セトリ作成向けです。</li>
-          <li>Official Channel は公式YouTube・Xへの外部リンクです。</li>
         </ul>
       </section>
       <section class="guide-section">
         <h3>曲を探す</h3>
         <ul>
-          <li>全曲リストでは曲名・アーティスト名・ジャンルで検索できます。</li>
-          <li>タグを押すと、その雰囲気や季節の曲だけに絞り込めます。</li>
-          <li>おすすめ選曲は、現在の絞り込み条件から候補を出します。</li>
+          <li><kbd>/</kbd> または <kbd>Ctrl+K</kbd> でサイト内全検索を開き、曲・アーティスト・配信を横断検索できます。</li>
+          <li>全曲リストではジャンル・タグ・並び替えで詳細な絞り込みができます。</li>
+          <li>曲を押すと <strong>歌唱回数・キー・初披露日・歌枠履歴</strong> を確認できます。</li>
         </ul>
       </section>
       <section class="guide-section">
-        <h3>曲詳細とタイムライン</h3>
+        <h3>動画ビューワー（歌枠・歌みた/オリ曲）</h3>
         <ul>
-          <li>曲を押すと、歌唱回数、最後に歌った日、歌枠履歴を見られます。</li>
-          <li>曲詳細の歌枠を押すと、該当するタイムラインへ移動できます。</li>
-          <li>タイムラインでは歌枠ごとのセトリとYouTubeリンクを確認できます。</li>
+          <li>タイムラインや歌みた・オリ曲のサムネイルを押すと、その場で動画を再生できます。</li>
+          <li>プレイヤー下の操作バーで <strong>前へ / 再生・一時停止 / 次へ / 連続再生 / リピート / 栞（プレイリスト保存）</strong> が使えます（歌枠・動画どちらも共通）。</li>
+          <li><kbd>Space</kbd> で再生・一時停止、<kbd>←</kbd> <kbd>→</kbd> で 10秒の巻き戻し・早送りができます。</li>
+          <li>歌枠ではセットリストの <strong>メモ</strong> で再生位置をタイムスタンプ記録、バッジをタップでその箇所へジャンプ。<strong>共有バッジ</strong> はコミュニティ審査済みのタイムスタンプで、「+ 提案」で投稿できます。</li>
+          <li><strong>共有</strong> ボタンで、いま見ている位置付きのリンクをコピー・SNS共有できます。</li>
+          <li>戻るとミニプレイヤーで再生を継続。ミニプレイヤーのタイトルをタップで元のビューワーへ戻れます。<strong>音楽プレイヤーで聴く</strong> で画面下の音楽バーへ移せます。</li>
         </ul>
       </section>
       <section class="guide-section">
-        <h3>配信者モード</h3>
+        <h3>音楽プレイヤーバー</h3>
         <ul>
-          <li>定番、久しぶり、レアなどから選曲候補を探せます。</li>
-          <li>＋セトリで曲を追加し、並び替えてコピーできます。</li>
-          <li>タイムラインでは歌枠のセトリをタイムスタンプ用にコピーできます。</li>
+          <li>画面下のバーで <strong>前へ / 再生・一時停止 / 次へ / 連続再生 / 1曲リピート / 全体リピート / シャッフル</strong> を操作できます。</li>
+          <li>リピートの隣の <strong>キューアイコン</strong> で「次に流れる曲」の一覧を開き、曲をタップして移動できます。</li>
+          <li>サムネ右上のボタンや <strong>動画で見る</strong> から、いつでも動画ビューワーへ切り替えられます。</li>
         </ul>
       </section>
       <section class="guide-section">
-        <h3>便利な操作</h3>
+        <h3>プレイリスト（マイリスト）</h3>
         <ul>
-          <li>下へスクロールすると、右下にページ上部へ戻るTOPボタンが出ます。</li>
-          <li>スマホではヘッダーのメニューから範囲、モード、公式リンクを操作できます。</li>
-          <li>右上の更新ボタンでデータを再読み込みできます。</li>
+          <li>マイリストを作成し、<strong>歌枠と動画（歌みた・オリ曲）を混在</strong>させて追加できます。再生すると順番にビューワーで連続再生されます。</li>
+          <li>タイムライン・歌枠一覧・動画ビューワーの <strong>栞ボタン</strong>、歌みた・オリ曲タブの「☑ 選択」での <strong>まとめて追加</strong> から保存できます。</li>
+          <li>行は <strong>ドラッグで並び替え</strong>、<strong>リンクを共有</strong> で他の人と共有、<strong>YouTubeで連続再生</strong> で YouTube 上の連続再生も可能です。</li>
         </ul>
       </section>
       <section class="guide-section">
-        <h3>反映がおかしいとき</h3>
+        <h3>ランキング・配信者モード</h3>
         <ul>
-          <li>データ更新直後は、数分待ってから再読み込みしてください。</li>
-          <li>古い表示が残る場合は、ブラウザのハードリロードを試してください。</li>
-          <li>曲名、ジャンル、表示の不具合はお問い合わせから連絡できます。</li>
+          <li>ランキングは今月・先月・直近7日・月別に切り替えられ、前月比も確認できます。</li>
+          <li>配信者モードでは選曲候補をセトリに追加して並び替え・コピーができます。</li>
+        </ul>
+      </section>
+      <section class="guide-section">
+        <h3>キーボードショートカット</h3>
+        <ul>
+          <li><kbd>/</kbd> <kbd>Ctrl+K</kbd> — サイト内全検索を開く</li>
+          <li><kbd>T</kbd> — ダーク/ライトテーマ切替</li>
+          <li><kbd>?</kbd> — このヘルプを開く</li>
+          <li><kbd>Esc</kbd> — 検索・モーダルを閉じる</li>
+          <li><kbd>Space</kbd> — 動画ビューワーで 再生 / 一時停止</li>
+          <li><kbd>←</kbd> <kbd>→</kbd> — 動画ビューワーで 10秒 巻き戻し / 早送り</li>
+        </ul>
+      </section>
+      <section class="guide-section">
+        <h3>うまく表示されないとき</h3>
+        <ul>
+          <li>データ更新直後は数分待ってから再読み込みしてください。</li>
+          <li>古い表示が残る場合はブラウザのハードリロードを試してください。</li>
+          <li>曲名やキーの誤り・不具合はフッターの「お問い合わせ」から連絡できます。</li>
         </ul>
       </section>
     </div>
@@ -229,6 +296,19 @@
     <span>閲覧はリスナー、選曲やセトリ作成は配信者モード。詳しい使い方はヘッダーの「?」から見られます。</span>
   </div>
   <button class="icon-btn help-close" id="welcome-close" type="button" aria-label="閉じる">×</button>
+</div>
+
+<div class="modal-backdrop" id="ch-modal" hidden>
+  <section class="help-dialog ch-dialog" role="dialog" aria-modal="true" aria-labelledby="ch-modal-title">
+    <div class="help-head">
+      <div>
+        <p class="help-kicker">Official Channel</p>
+        <h2 id="ch-modal-title">公式チャンネル</h2>
+      </div>
+      <button class="icon-btn help-close" id="ch-modal-close" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div id="ch-modal-body" class="ch-modal-body"></div>
+  </section>
 </div>
 
 <div class="modal-backdrop" id="song-modal" hidden>
@@ -244,23 +324,11 @@
   </section>
 </div>
 
-<div class="modal-backdrop" id="ch-modal" hidden>
-  <section class="help-dialog ch-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="ch-modal-title">
-    <div class="help-head">
-      <div><p class="help-kicker">Channel</p><h2 id="ch-modal-title">チャンネル紹介</h2></div>
-      <button class="icon-btn help-close" id="ch-modal-close" type="button" aria-label="閉じる">×</button>
-    </div>
-    <div id="ch-modal-body"></div>
-  </section>
-</div>
-
 <button class="page-top-toast" id="page-top-toast" type="button" aria-label="ページ上部へ移動" hidden>
-  <span>↑</span>
-  <strong>TOP</strong>
+  <img data-src="assets/site-icon.svg" alt="" width="64" height="64" loading="lazy" decoding="async">
 </button>
 
 <!-- Dependencies -->
-<script type="module" src="js/main.js?v=20260615-playlists"></script>
-
+<script type="module" src="js/main.js?v=20260616-ui-port"></script>
 </body>
 </html>

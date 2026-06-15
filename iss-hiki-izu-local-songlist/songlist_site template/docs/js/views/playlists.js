@@ -7,16 +7,15 @@
  *   「マイリスト」 — localStorage 保存のユーザー作成プレイリスト
  *
  * localStorage データ形式:
- *   ${SITE.storagePrefix}-playlists = [{ id, name, createdAt, streams: [streamKey|"mv:<id>",...] }]
+ *   isshiki-izu-playlists = [{ id, name, createdAt, streams: [streamKey|"mv:<id>",...] }]
  */
 
-import { state } from '../state.js';
+import { state } from '../store.js';
 import { $, escapeHtml, fmtDate, streamKey, youtubeThumb, youtubeThumbFallback, youtubeVideoId } from '../utils.js';
 import { icon } from '../icons.js';
-import { SITE } from '../config.js';
 
-const STORAGE_KEY = `${SITE.storagePrefix}-playlists`;
-const MUSIC_CACHE_KEY = `${SITE.storagePrefix}-music-videos-cache-v2`;
+const STORAGE_KEY = 'isshiki-izu-playlists';
+const MUSIC_CACHE_KEY = 'isshiki-izu-music-videos-cache-v2';
 const PER_PAGE    = 24; // 4列 × 6行
 
 /* ── モジュールレベルの状態（サブタブ / ページ） ─────────────────────────── */
@@ -158,7 +157,7 @@ export function renderPlaylists() {
     if (subtabBtn) {
       _activeSubTab = subtabBtn.dataset.plSubtab;
       if (_activeSubTab === 'all-streams') _streamPage = 1;
-      renderPlaylists();
+      renderPlaylists(); // music サブタブのローダーは renderPlaylists 内で起動される
       return;
     }
 
@@ -243,7 +242,8 @@ export function renderPlaylists() {
       return;
     }
 
-    // ── サムネクリック → 動画ビューワーで再生 ──
+    // ── サムネクリック → 動画ビューワーで再生（左クリックのみ。Ctrl/中クリックは
+    //    href の YouTube 新規タブを優先）。モバイルは __openStreamViewer 側で外部遷移 ──
     const watchThumb = e.target.closest('[data-mv-watch]');
     if (watchThumb && _musicVideos?.length) {
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
@@ -258,7 +258,8 @@ export function renderPlaylists() {
     }
   };
 
-  // 検索
+  // 検索: 入力欄は描画し直さず結果(#pl-music-results)だけ差し替えるので、
+  // IME 変換中でもライブフィルタして問題ない（抑制ロジック不要）
   panel.oninput = (e) => {
     const input = e.target.closest('#pl-music-search');
     if (!input) return;
@@ -266,7 +267,7 @@ export function renderPlaylists() {
     clearTimeout(_musicSearchDebounce);
     _musicSearchDebounce = setTimeout(_refreshMusicResults, 100);
   };
-  // IME 確定直後にも即時反映
+  // IME 確定直後にも即時反映（ブラウザ差異対策）
   panel.oncompositionend = (e) => {
     const input = e.target.closest('#pl-music-search');
     if (!input) return;
@@ -302,7 +303,7 @@ function _sortStreams(streams, sort) {
   if (sort === 'oldest')       return s.reverse();
   if (sort === 'most-songs')   return s.sort((a, b) => (b.songs?.length ?? 0) - (a.songs?.length ?? 0));
   if (sort === 'fewest-songs') return s.sort((a, b) => (a.songs?.length ?? 0) - (b.songs?.length ?? 0));
-  return s; // newest (default — already sorted newest-first)
+  return s; // newest (default — already sorted newest-first in store)
 }
 
 function _renderAllStreams(streams, page) {
@@ -372,6 +373,7 @@ function _renderPageInPlace(allStreams) {
   const body = $('#pl-subtab-body');
   if (!body) { renderPlaylists(); return; }
   body.innerHTML = _renderAllStreams(allStreams, _streamPage);
+  // サムネフォールバック再セット
   const panel = $('#panel-playlists');
   if (panel) {
     panel.addEventListener('error', (e) => {
@@ -386,7 +388,7 @@ function _renderPageInPlace(allStreams) {
 
 /* ── 歌みた・オリ曲ライブラリ ──────────────────────────────────────────── */
 
-/** music サブタブの初期 HTML */
+/** music サブタブの初期 HTML（renderPlaylists から同期呼び出し） */
 function _renderMusicSubtab() {
   if (_musicVideos === null) {
     const cached = _readMusicVideoCache();
@@ -395,7 +397,9 @@ function _renderMusicSubtab() {
   return _renderMusicLibrary(_musicVideos || []);
 }
 
-/** music.json を取得して結果を反映する。 */
+/** music.json を取得して結果を反映する。
+ *  検索欄が既に DOM にある場合は結果リストだけ差し替え、
+ *  入力中のフォーカス・IME 変換を絶対に壊さない。 */
 async function _loadAndRenderMusic() {
   if (_musicVideos !== null) {
     _renderOrRefreshMusic();
@@ -415,7 +419,7 @@ function _renderOrRefreshMusic() {
   const body = $('#pl-subtab-body');
   if (!body) return;
   if ($('#pl-music-search')) {
-    _refreshMusicResults();
+    _refreshMusicResults(); // 入力欄を温存して結果・件数のみ更新
   } else {
     body.innerHTML = _renderMusicLibrary(_musicVideos || []);
   }
@@ -432,7 +436,7 @@ function _renderMusicViewBar(videos) {
   return `
     <div class="pl-music-viewbar">
       <label class="pl-music-search-wrap">
-        <span class="pl-music-search-icon" aria-hidden="true">${icon('search')}</span>
+        <span class="pl-music-search-icon" aria-hidden="true">⌕</span>
         <input id="pl-music-search" class="pl-music-search" type="search"
           value="${escapeHtml(query)}"
           placeholder="曲名 / アーティストで検索"
@@ -443,7 +447,7 @@ function _renderMusicViewBar(videos) {
         <button class="pl-music-view-btn${_musicView === 'grid'     ? ' active' : ''}" data-music-view="grid"     type="button">グリッド</button>
         <button class="pl-music-view-btn${_musicView === 'list'     ? ' active' : ''}" data-music-view="list"     type="button">リスト</button>
         <button class="pl-music-view-btn${_musicView === 'category' ? ' active' : ''}" data-music-view="category" type="button">カテゴリ</button>
-        <button class="pl-music-view-btn pl-music-select-toggle${_musicSelectMode ? ' active' : ''}" data-music-select-toggle="1" type="button" ${shown ? '' : 'disabled'} title="複数選択してまとめて追加">${icon('check')} 選択</button>
+        <button class="pl-music-view-btn pl-music-select-toggle${_musicSelectMode ? ' active' : ''}" data-music-select-toggle="1" type="button" ${shown ? '' : 'disabled'} title="複数選択してまとめて追加">☑ 選択</button>
       </div>
     </div>
     ${_musicSelectMode ? _renderMusicSelectBar() : ''}`;
@@ -471,7 +475,7 @@ function _renderMusicResults(videos) {
     return `<div class="pl-empty-state"><p>読み込み中…</p><p class="pl-empty-hint">検索欄はこのまま入力できます</p></div>`;
   }
   if (!videos.length) {
-    return `<div class="pl-empty-state"><p>動画が登録されていません</p><p class="pl-empty-hint">music.json に動画データを追加してください</p></div>`;
+    return `<div class="pl-empty-state"><p>動画が登録されていません</p><p class="pl-empty-hint">管理画面から登録できます</p></div>`;
   }
   if (!items.length) {
     if (_musicLoading) {
@@ -492,7 +496,9 @@ function _currentMusicQuery() {
   return _musicQuery;
 }
 
-/** 音楽サブタブ本体を丸ごと再描画する。 */
+/** 音楽サブタブ本体（ビューバー + 結果）を丸ごと再描画する。
+ *  選択モードのトグル/選択変化で、選択バーやチェック状態も含めて更新する。
+ *  検索クエリは _musicQuery から value 復元されるため保持される。 */
 function _rerenderMusicBody() {
   const body = $('#pl-subtab-body');
   if (body) body.innerHTML = _renderMusicLibrary(_musicVideos || []);
@@ -540,7 +546,7 @@ function _writeMusicVideoCache(videos) {
 
 async function _fetchMusicVideos() {
   if (_musicLoadPromise) return _musicLoadPromise;
-  _musicLoadPromise = fetch('./data/music.json', { cache: 'no-store' })
+  _musicLoadPromise = fetch('/data/music.json', { cache: 'no-store' })
     .then(res => res.ok ? res.json() : Promise.reject(new Error(`music.json ${res.status}`)))
     .then(json => {
       const videos = Array.isArray(json?.videos) ? json.videos : [];
@@ -576,6 +582,7 @@ function _musicSearchText(video) {
     title,
     ...slashParts,
     video.originalArtist,
+    video.character,
     video.type,
     typeLabel,
   ].filter(Boolean).join(' '));
@@ -591,16 +598,13 @@ function _filterMusicVideos(videos) {
   });
 }
 
-/**
- * 動画バッジを返す。
- * - type === 'original' → オリ曲
- * - それ以外（'cover' を含む）→ カバー曲（2分類のみ）
- */
 function _mvBadge(video) {
-  if (video.type === 'original') {
-    return { label: 'オリ曲', cls: 'mv-badge-original', sub: 'オリジナル' };
+  switch (video.type) {
+    case 'cover':     return { label: 'カバー',    cls: 'mv-badge-cover',     sub: video.originalArtist || 'カバー曲' };
+    case 'office':    return { label: 'Re:AcT',    cls: 'mv-badge-office',    sub: 'Re:AcT' };
+    case 'character': return { label: 'キャラ',    cls: 'mv-badge-character', sub: video.character || 'キャラソン' };
+    default:          return { label: 'オリジナル', cls: 'mv-badge-original',  sub: 'イズ' };
   }
-  return { label: 'カバー曲', cls: 'mv-badge-cover', sub: video.originalArtist || 'カバー曲' };
 }
 
 function _musicDateText(video) {
@@ -701,19 +705,16 @@ function _renderMusicList(items) {
   return `<div class="mv-list">${items.map(({ v, i }) => _musicListRow(v, i)).join('')}</div>`;
 }
 
-/**
- * カテゴリビュー — オリ曲 / カバー曲 の2分類のみ
- */
 function _renderMusicCategory(items) {
+  // カテゴリビューでは全動画リストのインデックスをそのまま使う
   const sections = [
-    { key: 'original', label: 'オリジナル曲' },
-    { key: 'cover',    label: 'カバー曲（歌みた）' },
+    { key: 'original',  label: 'オリジナル曲（個人）' },
+    { key: 'office',    label: 'Re:AcT オリ曲' },
+    { key: 'character', label: 'キャラソン / 声優オリ曲' },
+    { key: 'cover',     label: 'カバー曲（歌みた）' },
   ].map(({ key, label }) => ({
     label,
-    items: items.filter(({ v }) => {
-      if (key === 'original') return v.type === 'original';
-      return v.type !== 'original';
-    }),
+    items: items.filter(({ v }) => v.type === key),
   })).filter(({ items }) => items.length > 0);
 
   return `
@@ -738,6 +739,8 @@ export function resolveMusicVideoId(mvKey) {
 
 /**
  * プレイリストの YouTube 動画 ID を収集する共有ヘルパー。
+ * mv: キーは resolveMusicVideoId で解決し、それ以外は allStreams で解決する。
+ * 解決できた URL から youtubeVideoId で ID を抽出し、falsy を除いた配列を返す。
  */
 function _playlistVideoIds(pl, allStreams) {
   return (pl.streams || [])
@@ -753,7 +756,10 @@ function _playlistVideoIds(pl, allStreams) {
 }
 
 /**
- * 動画 ID 配列から YouTube 再生 URL を開く。
+ * 動画 ID 配列から YouTube 再生 URL を開く（Task A / B 共通ロジック）。
+ * - 0 本: alert
+ * - 1 本: watch?v=ID
+ * - 2 本以上: watch_videos?video_ids= (先頭 50 本)
  */
 function _openYouTubePlaylist(videoIds) {
   if (!videoIds.length) {
@@ -811,6 +817,7 @@ function _renderPlaylistCard(pl, allStreams) {
     ? `<img class="pl-card-cover" src="${escapeHtml(youtubeThumb(firstUrl))}" alt="" loading="lazy" referrerpolicy="no-referrer">`
     : '';
 
+  const totalItems = entries.length;
   const items = entries.map(({ skey, isMv, mv, stream }) => {
     const moveKey = escapeHtml(pl.id + '|:|' + skey);
     const dragHandle = `<span class="pl-drag-handle" aria-hidden="true" title="ドラッグして並び替え">⠿</span>`;
@@ -823,7 +830,7 @@ function _renderPlaylistCard(pl, allStreams) {
           <div class="pl-stream-actions">${rmBtn}</div>
         </div>`;
       const { label: badge, sub } = _mvBadge(mv);
-      const mvTypeKey = mv.type === 'original' ? 'original' : 'cover';
+      const mvTypeKey = mv.type || 'original';
       const mvIdx = (_musicVideos || []).indexOf(mv);
       return `
         <div class="pl-stream-row" data-pl-skey="${escapeHtml(skey)}" data-pl-id="${escapeHtml(pl.id)}">
@@ -865,6 +872,7 @@ function _renderPlaylistCard(pl, allStreams) {
       </div>`;
   }).join('');
 
+  // YouTube共有可能な動画IDを収集（stream + mv: 両方を含む）
   const videoIds = _playlistVideoIds(pl, allStreams);
 
   return `
@@ -877,7 +885,7 @@ function _renderPlaylistCard(pl, allStreams) {
           <span class="pl-card-count">${pl.streams.length}件</span>
         </div>
         <button class="pl-del-btn" data-pl-del="${escapeHtml(pl.id)}"
-          type="button" title="プレイリストを削除">${icon('trash')}</button>
+          type="button" title="プレイリストを削除">🗑</button>
       </div>
       <div class="pl-stream-list">
         ${items || '<div class="pl-stream-empty">配信が追加されていません</div>'}
@@ -949,7 +957,7 @@ function _handleMyPlaylistsClick(e, allStreams) {
     renderPlaylists();
     return;
   }
-  // 再生（プレイリスト内の配信）
+  // 再生（プレイリスト内の配信）→ マイリストをキューとしてビューワーで再生
   const playBtn = e.target.closest('[data-pl-play-stream]');
   if (playBtn) {
     const row = playBtn.closest('.pl-stream-row');
@@ -959,7 +967,7 @@ function _handleMyPlaylistsClick(e, allStreams) {
     if (found?.url) window.__openStreamViewer?.(found);
     return;
   }
-  // 再生（プレイリスト内の音楽動画）
+  // 再生（プレイリスト内の音楽動画）→ 同上
   const playMvBtn = e.target.closest('[data-play-music-pl]');
   if (playMvBtn) {
     const row = playMvBtn.closest('.pl-stream-row');
@@ -1003,7 +1011,7 @@ function _promptCreate() {
   renderPlaylists();
 }
 
-/* ── プレイリスト追加モーダル ──────────────────────────────────────────── */
+/* ── プレイリスト追加モーダル（YouTube の保存先選択風） ──────────────────── */
 
 const PL_BOOKMARK_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1z"/></svg>';
 
@@ -1017,11 +1025,14 @@ function _playlistCoverUrl(pl) {
   return '';
 }
 
-/** プレイリスト追加モーダル */
+/** プレイリスト追加モーダル。skeyOrArray は単一キーまたはキー配列（まとめて追加）。
+ *  YouTube の保存先選択のように、サムネ + 曲数 + 栞アイコンで表示し、
+ *  栞をタップで追加/削除トグル（登録済みは色付き）。再描画で再ポップしない。 */
 export function showAddToPlaylistModal(skeyOrArray, streamTitle, opts = {}) {
   const keys = Array.isArray(skeyOrArray) ? skeyOrArray.filter(Boolean) : [skeyOrArray].filter(Boolean);
   if (!keys.length) return;
   const isBulk = keys.length > 1;
+  // 追加/削除のたびに呼ぶ。呼び出し元のボタンの保存済み表示を即時更新するため。
   const notifyChange = () => {
     try { opts.onChange?.(keys.some(k => isStreamInAnyPlaylist(k))); } catch (_) {}
   };
@@ -1035,8 +1046,10 @@ export function showAddToPlaylistModal(skeyOrArray, streamTitle, opts = {}) {
     document.body.appendChild(modal);
   }
 
+  // このリストに（すべての）キーが入っているか
   const isSaved = (pl) => keys.every(k => (pl.streams || []).includes(k));
 
+  /** 1プレイリストぶんの行 HTML */
   const itemHtml = (pl) => {
     const saved = isSaved(pl);
     const coverUrl = _playlistCoverUrl(pl);
@@ -1047,7 +1060,7 @@ export function showAddToPlaylistModal(skeyOrArray, streamTitle, opts = {}) {
         <span class="pl-modal-item-cover">
           ${thumb
             ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
-            : `<span class="pl-modal-item-cover--empty">${icon('music')}</span>`}
+            : '<span class="pl-modal-item-cover--empty">♪</span>'}
         </span>
         <span class="pl-modal-item-info">
           <span class="pl-modal-item-name">${escapeHtml(pl.name)}</span>
@@ -1092,6 +1105,7 @@ export function showAddToPlaylistModal(skeyOrArray, streamTitle, opts = {}) {
       const pl = createPlaylist(name);
       keys.forEach(k => addStreamToPlaylist(pl.id, k));
       _showToast(isBulk ? `「${name}」に${keys.length}曲保存しました` : `「${name}」に保存しました`);
+      // 行を1つ追加するだけ（モーダルは閉じない）
       const listEl = modal.querySelector('#pl-modal-list');
       const empty = listEl?.querySelector('.pl-modal-empty');
       if (empty) listEl.innerHTML = '';
@@ -1099,6 +1113,7 @@ export function showAddToPlaylistModal(skeyOrArray, streamTitle, opts = {}) {
       notifyChange();
     });
 
+    // 行クリック＝保存トグル（その行だけ更新、モーダルは再ポップしない）
     modal.querySelector('#pl-modal-list').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-pl-add]');
       if (!btn) return;
@@ -1116,6 +1131,7 @@ export function showAddToPlaylistModal(skeyOrArray, streamTitle, opts = {}) {
         savePlaylists(lists);
         _showToast(isBulk ? `「${pl.name}」に${keys.length}曲保存しました` : `「${pl.name}」に保存しました`);
       }
+      // クリックした行だけ差し替え（再描画による再ポップを避ける）
       btn.outerHTML = itemHtml(getPlaylists().find(p => p.id === plId));
       notifyChange();
     });
@@ -1142,9 +1158,10 @@ function _showToast(msg) {
   toast._timer = setTimeout(() => toast.classList.remove('pl-toast--show'), 2500);
 }
 
-/* ── ドラッグ並び替え ────────────────────────────────────────────────────── */
+/* ── ドラッグ並び替え（Pointer Events ベース） ─────────────────────────── */
 
-/** マイリストの行 ▶ から、リスト全体をビューワーのキューとして再生する。 */
+/** マイリストの行 ▶ から、リスト全体をビューワーのキューとして再生する。
+ *  解決できた項目（配信 + 動画）だけをキューに積み、クリック行から開始する。 */
 function _playMyListFromRow(row, allStreams) {
   const pl = getPlaylists().find(p => p.id === row.dataset.plId);
   if (!pl || !window.__playMyListInViewer) return false;
@@ -1165,6 +1182,10 @@ function _playMyListFromRow(row, allStreams) {
   return true;
 }
 
+/* ── ドラッグ並び替え ──────────────────────────────────────────────────────
+ * ドラッグ中の行は transform でポインタに追従し、他の行は CSS トランジションで
+ * 滑らかにシフト表示する。DOM の並び替えと保存はドロップ確定時に一度だけ行う。 */
+
 function _initDragSort() {
   if (_activeSubTab !== 'my-playlists') return;
   const panel = $('#panel-playlists');
@@ -1177,7 +1198,7 @@ function _initDragSort() {
 let _dragState = null;
 
 function _onDragStart(e) {
-  if (_dragState) return;
+  if (_dragState) return; // 多重ドラッグ防止
   const handle = e.target.closest('.pl-drag-handle');
   if (!handle) return;
   const row = handle.closest('.pl-stream-row');
@@ -1190,6 +1211,7 @@ function _onDragStart(e) {
   const startIdx = rows.indexOf(row);
   if (startIdx < 0) return;
 
+  // ドラッグ開始時点の各行の中心 Y（固定値として使う — レイアウトは動かさないので不変）
   const mids = rows.map(r => {
     const rc = r.getBoundingClientRect();
     return rc.top + rc.height / 2;
@@ -1207,7 +1229,7 @@ function _onDragStart(e) {
 
   row.classList.add('is-dragging');
   list.classList.add('is-drag-active');
-  try { row.setPointerCapture(e.pointerId); } catch (_) {}
+  try { row.setPointerCapture(e.pointerId); } catch (_) { /* 合成イベント等 */ }
 
   row.addEventListener('pointermove', _onDragMove, { passive: false });
   row.addEventListener('pointerup', _onDragEnd);
@@ -1220,10 +1242,11 @@ function _onDragMove(e) {
   e.preventDefault();
 
   const dy = e.clientY - st.startY;
-  if (!st.moved && Math.abs(dy) < 3) return;
+  if (!st.moved && Math.abs(dy) < 3) return; // 微小移動はクリック扱い
   st.moved = true;
   st.row.style.transform = `translateY(${dy}px)`;
 
+  // ドラッグ中の行の中心位置から挿入先インデックスを決定
   const centerY = st.mids[st.startIdx] + dy;
   let target = 0;
   for (let i = 0; i < st.mids.length; i++) {
@@ -1233,6 +1256,7 @@ function _onDragMove(e) {
 
   if (target !== st.targetIdx) {
     st.targetIdx = target;
+    // 間にある行をシフト表示（CSS transition で滑らかに動く）
     st.rows.forEach((r, i) => {
       if (i === st.startIdx) return;
       let shift = 0;

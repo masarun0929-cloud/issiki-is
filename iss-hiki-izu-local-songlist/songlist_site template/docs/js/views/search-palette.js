@@ -4,7 +4,7 @@
  *   / または Ctrl+K で開く。曲・アーティスト・配信枠・動画を横断検索する。
  */
 
-import { state } from '../state.js';
+import { state } from '../store.js';
 import { escapeHtml, fmtDate } from '../utils.js';
 import { search as searchSongs } from '../search.js';
 import { icon } from '../icons.js';
@@ -172,6 +172,7 @@ function _render(rawQuery) {
   let matchedSongs = [];
   try { matchedSongs = (searchSongs(rawQuery, songs).results || []).slice(0, 8); } catch (_) {}
   if (!matchedSongs.length) {
+    // フォールバック: トークン分割 AND 検索
     matchedSongs = songs.filter(s => _tokensMatch(rawQuery, `${s.title} ${s.artist}`)).slice(0, 8);
   }
 
@@ -220,7 +221,7 @@ function _render(rawQuery) {
     }
   }
 
-  // ── 配信枠（トークン分割 AND 検索）──────────────────────────────────────
+  // ── 配信枠（トークン分割 AND 検索: 各語がタイトルか収録曲のどこかに一致）──
   if (streams.length) {
     const matchedStreams = streams.filter(s => {
       const hay = _norm(`${s.title || ''} ${(s.songs || []).map(sg => `${sg.title || ''} ${sg.artist || ''}`).join(' ')}`);
@@ -232,7 +233,7 @@ function _render(rawQuery) {
       html += _sectionLabel('calendar', '配信枠');
       for (const stream of matchedStreams) {
         _flat.push({ type: 'stream', stream });
-        const chLabel = stream.channel === 'new' ? '新ch' : stream.channel === 'old' ? '旧ch' : '';
+        const chLabel = stream.channel === 'new' ? '歌った曲リスト' : stream.channel === 'old' ? '別ch' : '';
         html += `<div class="omni-item" role="option" aria-selected="false" data-omni-idx="${idx++}">
           <span class="omni-item-icon">${icon('calendar')}</span>
           <div class="omni-item-body">
@@ -267,7 +268,7 @@ function _songItem(song, idx, q) {
 
 function _musicVideoItem(video, idx, q) {
   const badge = _musicTypeLabel(video);
-  const sub = video.originalArtist || badge;
+  const sub = video.originalArtist || video.character || badge;
   return `<div class="omni-item" role="option" aria-selected="false" data-omni-idx="${idx}">
     <span class="omni-item-icon">${icon('video')}</span>
     <div class="omni-item-body">
@@ -280,7 +281,7 @@ function _musicVideoItem(video, idx, q) {
 function _ensureMusicVideos() {
   if (_musicVideos !== null) return Promise.resolve(_musicVideos);
   if (_musicPromise) return _musicPromise;
-  _musicPromise = fetch('./data/music.json', { cache: 'no-store' })
+  _musicPromise = fetch('/data/music.json', { cache: 'no-store' })
     .then(res => res.ok ? res.json() : Promise.reject(new Error(`music.json ${res.status}`)))
     .then(json => {
       _musicVideos = Array.isArray(json?.videos) ? json.videos : [];
@@ -307,6 +308,7 @@ function _musicSearchText(video) {
     title,
     ...slashParts,
     video.originalArtist,
+    video.character,
     video.type,
     _musicTypeLabel(video),
   ].filter(Boolean).join(' '));
@@ -314,7 +316,9 @@ function _musicSearchText(video) {
 
 function _musicTypeLabel(video) {
   switch (video?.type) {
-    case 'cover': return 'カバー曲';
+    case 'cover': return '歌みた';
+    case 'office': return 'Re:AcTオリ曲';
+    case 'character': return 'キャラソン';
     default: return 'オリ曲';
   }
 }

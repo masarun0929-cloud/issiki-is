@@ -10,13 +10,6 @@
 
 import { $, escapeHtml, youtubeVideoId, youtubeThumb } from './utils.js';
 import { icon } from './icons.js';
-import { SITE } from './config.js';
-
-/* ── localStorage キー ───────────────────────────────────────────────────── */
-
-const KEY_VOL        = `${SITE.storagePrefix}-vol`;
-const KEY_SHUFFLE    = `${SITE.storagePrefix}-shuffle`;
-const KEY_REPEAT_ALL = `${SITE.storagePrefix}-repeatAll`;
 
 /* ── 状態 ────────────────────────────────────────────────────────────────── */
 
@@ -27,17 +20,17 @@ let _external = null;
 let _progIv   = null;
 let _continuous = true;
 let _repeatOne = false;
-let _repeatAll = localStorage.getItem(KEY_REPEAT_ALL) === '1';
+let _repeatAll = localStorage.getItem('kanaRepeatAll') === '1';
 let _seenEnded = false;
-let _shuffle  = localStorage.getItem(KEY_SHUFFLE) === '1';
+let _shuffle  = localStorage.getItem('kanaShuffle') === '1';
 let _queuePopupOpen = false;
 
 let _ytReady = false;
 const _ytQ   = [];
 let _apiLoader = null;
 
-const _storedVol = () => Math.max(0, Math.min(100, parseInt(localStorage.getItem(KEY_VOL) ?? '100') || 100));
-const _saveVol   = v  => localStorage.setItem(KEY_VOL, String(v));
+const _storedVol = () => Math.max(0, Math.min(100, parseInt(localStorage.getItem('kanaVol') ?? '100') || 100));
+const _saveVol   = v  => localStorage.setItem('kanaVol', String(v));
 const _volIcon   = () => icon('volume');
 
 /* ── YT API 連携 ─────────────────────────────────────────────────────────── */
@@ -133,7 +126,7 @@ export function initMusicPlayer() {
   $('#mbar-repeat').addEventListener('click', _toggleRepeat);
   $('#mbar-shuffle').addEventListener('click', (e) => {
     _shuffle = !_shuffle;
-    try { localStorage.setItem(KEY_SHUFFLE, _shuffle ? '1' : '0'); } catch (_) {}
+    try { localStorage.setItem('kanaShuffle', _shuffle ? '1' : '0'); } catch (_) {}
     e.currentTarget.setAttribute('aria-pressed', _shuffle ? 'true' : 'false');
     e.currentTarget.classList.toggle('is-on', _shuffle);
   });
@@ -222,6 +215,8 @@ export function initMusicPlayer() {
   });
 
   // バー外クリックでキューポップアップを閉じる。
+  // 行クリック直後は再描画で元ノードが切り離され contains 判定が外れるため、
+  // closest でポップアップ内クリック（切り離し済み含む）を先に除外する
   document.addEventListener('click', (e) => {
     if (!_queuePopupOpen) return;
     if (e.target.closest?.('#mbar-queue-popup, #mbar-queue-btn, .mbar-qp-row')) return;
@@ -242,7 +237,7 @@ export function playMusicQueue(videos, startIdx = 0, options = {}) {
   _qIdx  = Math.max(0, Math.min(startIdx, _queue.length - 1));
   if (options.shuffle != null) {
     _shuffle = !!options.shuffle;
-    try { localStorage.setItem(KEY_SHUFFLE, _shuffle ? '1' : '0'); } catch (_) {}
+    try { localStorage.setItem('kanaShuffle', _shuffle ? '1' : '0'); } catch (_) {}
   }
   _loadTrack(_qIdx);
 }
@@ -250,6 +245,7 @@ export function playMusicQueue(videos, startIdx = 0, options = {}) {
 export function playNext() {
   if (!_queue.length) return;
   if (_shuffle && _queue.length > 1) {
+    // シャッフル: 現在曲以外からランダムに選ぶ
     let next = _qIdx;
     while (next === _qIdx) next = Math.floor(Math.random() * _queue.length);
     _qIdx = next;
@@ -288,7 +284,11 @@ export function pauseMusicPlayer() {
   if (player) { try { player.pauseVideo(); } catch (_) {} }
 }
 
-/** 動画ビューワーへ引き継ぐ際にプレイヤーだけ破棄する。 */
+/** 動画ビューワーへ引き継ぐ際にプレイヤーだけ破棄する。
+ *  同じ動画を 2 つの YT プレイヤーが持つと、片方を destroy した時に
+ *  もう片方の再生セッションまで壊れる（BUFFERING のまま固まる）ため、
+ *  ビューワーの再生が始まる前にバー側のプレイヤーを必ず手放す。
+ *  バー・キューは維持し、再生ボタンでプレイヤーを再生成できる。 */
 export function releaseMusicPlayerVideo(options = {}) {
   _stopProg();
   if (_external) {
@@ -320,7 +320,9 @@ export function isMusicBarVisible() {
   return !$('#music-bar')?.hidden;
 }
 
-/** 任意の動画を音楽バーで再生する（ビューワー → バー引き継ぎ用）。 */
+/** 任意の動画を音楽バーで再生する（ビューワー → バー引き継ぎ用）。
+ *  既存キューに同じ動画があればキュー位置を維持して再生し、
+ *  なければ単独キューとして再生する。 */
 export function playMusicBarVideo(video, startAt = 0) {
   if (!video?.url) return;
   const idx = _queue.findIndex(v => v.url === video.url);
@@ -467,12 +469,13 @@ function _updateBarInfo(video) {
   if (sub) {
     if (video.sub)                       sub.textContent = video.sub;
     else if (video.type === 'cover')     sub.textContent = video.originalArtist || 'カバー曲';
-    else if (video.type === 'original')  sub.textContent = 'オリジナル曲';
-    else                                 sub.textContent = video.originalArtist || '—';
+    else if (video.type === 'office')    sub.textContent = 'Re:AcT';
+    else if (video.type === 'character') sub.textContent = video.character || 'キャラソン';
+    else                                 sub.textContent = 'イズオリジナル';
   }
   if (badge) {
-    const labels = { original: 'オリ曲', cover: 'カバー曲', stream: '歌枠' };
-    badge.textContent = labels[video.type] || 'オリ曲';
+    const labels = { original: 'オリジナル', office: 'Re:AcT', character: 'キャラ', cover: 'カバー', stream: '歌枠' };
+    badge.textContent = labels[video.type] || 'オリジナル';
     badge.dataset.type = video.type;
   }
   if (qi)   qi.textContent = _queue.length > 1 ? `${_qIdx + 1} / ${_queue.length}` : '';
@@ -492,6 +495,7 @@ function _showBar() {
 function _togglePlay() {
   const player = _player();
   if (!player) {
+    // ビューワー引き継ぎでプレイヤー解放済み → 現在の曲から再生成
     if (_qIdx >= 0 && _queue.length) _loadTrack(_qIdx);
     return;
   }
@@ -546,6 +550,7 @@ function _handleEnded() {
     try { player.seekTo(0, true); player.playVideo(); } catch (_) {}
     return;
   }
+  // シャッフル ON 時は終端の概念がないので repeatAll の影響なし
   if (_shuffle && _queue.length > 1) {
     playNext();
     return;
@@ -553,10 +558,13 @@ function _handleEnded() {
   const isLast = _qIdx >= _queue.length - 1;
   if (_continuous && _queue.length > 1) {
     if (isLast) {
+      // キューの末尾
       if (_repeatAll) {
+        // 先頭に戻って再生
         _qIdx = 0;
         _loadTrack(_qIdx);
       } else {
+        // 停止
         $('#mbar-play')?.setAttribute('data-playing', '0');
       }
     } else {
@@ -579,7 +587,7 @@ function _toggleRepeat() {
 
 function _toggleRepeatAll() {
   _repeatAll = !_repeatAll;
-  try { localStorage.setItem(KEY_REPEAT_ALL, _repeatAll ? '1' : '0'); } catch (_) {}
+  try { localStorage.setItem('kanaRepeatAll', _repeatAll ? '1' : '0'); } catch (_) {}
   _syncModeButtons();
 }
 
@@ -609,8 +617,8 @@ function _syncModeButtons() {
 /* ── キューポップアップ ─────────────────────────────────────────────────── */
 
 function _mvBadgeLabel(type) {
-  const labels = { original: 'オリ曲', cover: 'カバー曲', stream: '歌枠' };
-  return labels[type] || 'オリ曲';
+  const labels = { original: 'オリジナル', office: 'Re:AcT', character: 'キャラ', cover: 'カバー', stream: '歌枠' };
+  return labels[type] || 'オリジナル';
 }
 
 function _renderQueuePopup() {
@@ -630,6 +638,7 @@ function _renderQueuePopup() {
     </button>`;
   }).join('');
 
+  // 現在再生中の行へスクロール
   const currentRow = popup.querySelector('.is-current');
   if (currentRow) {
     requestAnimationFrame(() => {
@@ -643,6 +652,7 @@ function _openQueuePopup() {
   if (!popup) return;
   _queuePopupOpen = true;
   popup.hidden = false;
+  // イベントリスナーを都度付け直さないよう、onclick で上書き
   popup.onclick = (e) => {
     const row = e.target.closest('[data-qp-idx]');
     if (!row) return;
