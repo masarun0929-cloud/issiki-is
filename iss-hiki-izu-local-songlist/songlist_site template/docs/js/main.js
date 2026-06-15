@@ -169,11 +169,12 @@ function renderOfficialLinks() {
     const className = escapeHtml(link.className || '');
     const label = escapeHtml(link.label);
     const href = escapeHtml(link.url);
-    const inner = link.className === 'youtube' && avatarUrl
-      ? `<img class="official-link-avatar" src="${escapeHtml(avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
-      : link.className === 'x-link'
-        ? `<svg class="official-link-logo official-link-logo--x" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.2 2.3h3.3l-7.2 8.3 8.5 11.2h-6.7L11 15l-6 6.8H1.7l7.8-8.9L1.2 2.3h6.9l4.7 6.3zM17 19.8h1.8L7.1 4.1H5.2z"/></svg>`
-        : label;
+    if (link.className === 'youtube' && avatarUrl) {
+      return `<button class="official-link ${className}" type="button" data-ch-modal="new" aria-label="チャンネル紹介"><img class="official-link-avatar" src="${escapeHtml(avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer"></button>`;
+    }
+    const inner = link.className === 'x-link'
+      ? `<svg class="official-link-logo official-link-logo--x" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.2 2.3h3.3l-7.2 8.3 8.5 11.2h-6.7L11 15l-6 6.8H1.7l7.8-8.9L1.2 2.3h6.9l4.7 6.3zM17 19.8h1.8L7.1 4.1H5.2z"/></svg>`
+      : label;
     return `<a class="official-link ${className}" href="${href}" target="_blank" rel="noopener" aria-label="${label}">${inner}</a>`;
   };
   nav.innerHTML = [
@@ -711,9 +712,12 @@ function initChannelModal() {
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
 
-  // data-ch-modal 属性を持つボタンにリスナーを付与
+  // data-ch-modal 属性を持つ要素にリスナーを付与
   document.querySelectorAll('[data-ch-modal]').forEach(btn => {
-    btn.addEventListener('click', () => openChannelModal(btn.dataset.chModal));
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      openChannelModal(btn.dataset.chModal);
+    });
   });
 }
 
