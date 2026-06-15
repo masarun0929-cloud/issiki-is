@@ -1,6 +1,8 @@
+import { icon } from './icons.js';
+
 const KEY = 'sample-songlist-theme';
 const ORDER = ['auto', 'light', 'dark'];
-const ICONS = { auto: '🌗', light: '☀️', dark: '🌙' };
+const ICONS = { auto: icon('moon'), light: icon('sun'), dark: icon('moon') };
 const LABELS = { auto: 'auto', light: 'light', dark: 'dark' };
 
 const subscribers = new Set();
@@ -33,7 +35,7 @@ function apply() {
   document.documentElement.setAttribute('data-theme', t);
   const iconEl = document.getElementById('theme-icon');
   const labelEl = document.getElementById('theme-label');
-  if (iconEl) iconEl.textContent = ICONS[t];
+  if (iconEl) iconEl.innerHTML = ICONS[t];
   if (labelEl) labelEl.textContent = LABELS[t];
 }
 

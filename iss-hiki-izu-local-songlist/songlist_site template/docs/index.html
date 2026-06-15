@@ -30,7 +30,7 @@
   }
 }
 </script>
-<link rel="modulepreload" href="js/main.js?v=20260523-artists">
+<link rel="modulepreload" href="js/main.js?v=20260615-playlists">
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/views.css">
@@ -75,6 +75,7 @@
         <span class="theme-icon" id="theme-icon">🌗</span>
         <span class="theme-label" id="theme-label">auto</span>
       </button>
+      <button class="icon-btn" id="ch-info-btn" type="button" data-ch-modal="new" title="チャンネル紹介" aria-label="チャンネル紹介">ℹ</button>
       <button class="icon-btn help-btn" id="help-btn" type="button" title="使い方" aria-label="使い方を表示">
         ?
       </button>
@@ -104,22 +105,24 @@
 
   <!-- Tabs -->
   <nav class="tabs" role="tablist" aria-label="セクション">
-    <button class="tab-btn active" data-tab="dashboard" role="tab">📊 ダッシュボード</button>
-    <button class="tab-btn" data-tab="ranking"   role="tab">🏆 ランキング</button>
-    <button class="tab-btn" data-tab="songs"     role="tab">🎵 全曲リスト</button>
-    <button class="tab-btn" data-tab="timeline"  role="tab">📅 タイムライン</button>
-    <button class="tab-btn" data-tab="lives"     role="tab">🌟 ライブ情報</button>
-    <button class="tab-btn" data-tab="analytics" role="tab">📈 アナリティクス</button>
+    <button class="tab-btn active" data-tab="dashboard" role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h5v7H4z"/><path d="M10 4h5v16h-5z"/><path d="M16 9h4v11h-4z"/></svg> ダッシュボード</button>
+    <button class="tab-btn" data-tab="ranking"   role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v3a4 4 0 0 1-8 0z"/><path d="M6 5H3v2a4 4 0 0 0 4 4"/><path d="M18 5h3v2a4 4 0 0 1-4 4"/><path d="M12 11v5"/><path d="M8 20h8"/><path d="M9 16h6v4H9z"/></svg> ランキング</button>
+    <button class="tab-btn" data-tab="songs"     role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg> 全曲リスト</button>
+    <button class="tab-btn" data-tab="timeline"  role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v4"/><path d="M17 3v4"/><path d="M4 8h16"/><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 13h3"/><path d="M13 13h3"/><path d="M8 17h3"/></svg> タイムライン</button>
+    <button class="tab-btn" data-tab="lives"     role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg> ライブ情報</button>
+    <button class="tab-btn" data-tab="analytics"  role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3-4 4 2 5-7"/><circle cx="7" cy="15" r="1"/><circle cx="10" cy="11" r="1"/><circle cx="14" cy="13" r="1"/><circle cx="19" cy="6" r="1"/></svg> アナリティクス</button>
+    <button class="tab-btn" data-tab="playlists"  role="tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h10"/><path d="M5 11h10"/><path d="M5 16h7"/><path d="M18 8v10l3-2 3 2V8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1z"/></svg> プレイリスト</button>
   </nav>
 
   <!-- Panels -->
   <div class="panels">
-    <section class="panel active" id="panel-dashboard" role="tabpanel"></section>
-    <section class="panel"        id="panel-ranking"   role="tabpanel"></section>
-    <section class="panel"        id="panel-songs"     role="tabpanel"></section>
-    <section class="panel"        id="panel-timeline"  role="tabpanel"></section>
-    <section class="panel"        id="panel-lives"     role="tabpanel"></section>
-    <section class="panel"        id="panel-analytics" role="tabpanel"></section>
+    <section class="panel active" id="panel-dashboard"  role="tabpanel"></section>
+    <section class="panel"        id="panel-ranking"    role="tabpanel"></section>
+    <section class="panel"        id="panel-songs"      role="tabpanel"></section>
+    <section class="panel"        id="panel-timeline"   role="tabpanel"></section>
+    <section class="panel"        id="panel-lives"      role="tabpanel"></section>
+    <section class="panel"        id="panel-analytics"  role="tabpanel"></section>
+    <section class="panel"        id="panel-playlists"  role="tabpanel"></section>
   </div>
 
   <div id="loading" class="state-card" hidden>
@@ -242,13 +245,23 @@
   </section>
 </div>
 
+<div class="modal-backdrop" id="ch-modal" hidden>
+  <section class="help-dialog ch-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="ch-modal-title">
+    <div class="help-head">
+      <div><p class="help-kicker">Channel</p><h2 id="ch-modal-title">チャンネル紹介</h2></div>
+      <button class="icon-btn help-close" id="ch-modal-close" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div id="ch-modal-body"></div>
+  </section>
+</div>
+
 <button class="page-top-toast" id="page-top-toast" type="button" aria-label="ページ上部へ移動" hidden>
   <span>↑</span>
   <strong>TOP</strong>
 </button>
 
 <!-- Dependencies -->
-<script type="module" src="js/main.js?v=20260523-artists"></script>
+<script type="module" src="js/main.js?v=20260615-playlists"></script>
 
 </body>
 </html>

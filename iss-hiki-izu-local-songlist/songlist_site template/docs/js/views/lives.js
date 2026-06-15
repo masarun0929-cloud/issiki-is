@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { $, escapeHtml, fmtDate, formatNumber } from '../utils.js';
+import { icon } from '../icons.js';
 
 export function renderLives() {
   const lives = state.lives || [];
@@ -8,7 +9,7 @@ export function renderLives() {
 
   panel.innerHTML = `
     <div class="section-header">
-      <h2>🌟 リアルライブ情報</h2>
+      <h2>${icon('sparkle')} リアルライブ情報</h2>
       <span class="count-pill">${formatNumber(lives.length)}公演</span>
     </div>
     <div class="live-summary-grid">

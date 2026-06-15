@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { $, escapeHtml, fmtDate, monthKey, fmtMonth, daysClass } from '../utils.js';
 import { chartCanvas } from '../charts.js';
+import { icon } from '../icons.js';
 
 let chartRenderToken = 0;
 
@@ -52,12 +53,12 @@ export function renderDashboard() {
     <div class="dashboard-grid">
 
       <div class="card col-8">
-        <div class="card-title">📅 配信ヒートマップ <span class="pill">直近1年</span></div>
+        <div class="card-title">${icon('calendar')} 配信ヒートマップ <span class="pill">直近1年</span></div>
         ${renderHeatmap(heatmap)}
       </div>
 
       <div class="card col-4">
-        <div class="card-title">📈 今月の活動</div>
+        <div class="card-title">${icon('analytics')} 今月の活動</div>
         <div style="display:grid;gap:10px;">
           <div class="activity-row">
             <span class="a-date">配信</span>
@@ -83,52 +84,52 @@ export function renderDashboard() {
       </div>
 
       <div class="card col-8">
-        <div class="card-title">🎶 月別 歌唱数 / 歌枠数 <span class="pill">時系列</span></div>
+        <div class="card-title">${icon('music')} 月別 歌唱数 / 歌枠数 <span class="pill">時系列</span></div>
         ${chartCanvas('chart-monthly', { class: '' })}
       </div>
 
       <div class="card col-4">
-        <div class="card-title">🏆 TOP5 楽曲</div>
+        <div class="card-title">${icon('rank')} TOP5 楽曲</div>
         <div class="bar-list">
           ${top5.map((s, i) => topBarRow(s, i, top5[0].count)).join('')}
         </div>
       </div>
 
       <div class="card col-6">
-        <div class="card-title">🗳 今月のよく歌われた曲 <span class="pill">軽量版</span></div>
+        <div class="card-title">${icon('chart')} 今月のよく歌われた曲 <span class="pill">軽量版</span></div>
         <div class="bar-list">
           ${monthlyHits.length ? monthlyHits.slice(0, 5).map((s, i) => topBarRow(s, i, monthlyHits[0].count)).join('') : '<div class="empty-state">今月の歌唱履歴なし</div>'}
         </div>
       </div>
 
       <div class="card col-6">
-        <div class="card-title">🗳 今年のよく歌われた曲 <span class="pill">軽量版</span></div>
+        <div class="card-title">${icon('chart')} 今年のよく歌われた曲 <span class="pill">軽量版</span></div>
         <div class="bar-list">
           ${yearlyHits.length ? yearlyHits.slice(0, 5).map((s, i) => topBarRow(s, i, yearlyHits[0].count)).join('') : '<div class="empty-state">今年の歌唱履歴なし</div>'}
         </div>
       </div>
 
       <div class="card col-6">
-        <div class="card-title">💤 久しぶり候補 <span class="pill">180日以上</span></div>
+        <div class="card-title">${icon('time')} 久しぶり候補 <span class="pill">180日以上</span></div>
         <div class="bar-list">
           ${stalePicks.length ? stalePicks.map((s, i) => topBarRow(s, i, stalePicks[0].count)).join('') : '<div class="empty-state">候補なし</div>'}
         </div>
       </div>
 
       <div class="card col-6">
-        <div class="card-title">✨ 最近歌った定番 <span class="pill">30日以内</span></div>
+        <div class="card-title">${icon('sparkle')} 最近歌った定番 <span class="pill">30日以内</span></div>
         <div class="bar-list">
           ${recentPicks.length ? recentPicks.map((s, i) => topBarRow(s, i, recentPicks[0].count)).join('') : '<div class="empty-state">候補なし</div>'}
         </div>
       </div>
 
       <div class="card col-12">
-        <div class="card-title">📺 直近の歌枠 <span class="pill">最新${recent.length}件</span></div>
+        <div class="card-title">${icon('video')} 直近の歌枠 <span class="pill">最新${recent.length}件</span></div>
         ${recent.map(s => `
           <div class="activity-row">
             <span class="a-date">${fmtDate(s.date)}</span>
             <span class="a-title">${s.url ? `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title || '配信')}</a>` : escapeHtml(s.title)}</span>
-            <span class="a-meta">🎤 ${s.songs.length}曲</span>
+            <span class="a-meta">${icon('mic')} ${s.songs.length}曲</span>
           </div>
         `).join('')}
       </div>

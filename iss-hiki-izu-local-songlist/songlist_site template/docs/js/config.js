@@ -14,6 +14,8 @@ export const SITE = {
   officialLinks: [
     { label: 'YouTube', url: 'https://www.youtube.com/@%E4%B8%80%E8%89%B2%E3%82%A4%E3%82%BA', className: 'youtube' },
     { label: 'X', url: 'https://x.com/isshiki_is', className: 'x-link' },
+    { label: 'TikTok', url: 'https://www.tiktok.com/@isshiki_is', className: 'tiktok-link' },
+    { label: 'マシュマロ', url: 'https://marshmallow-qa.com/5sh1w3i67zm00x2', className: 'marshmallow-link' },
   ],
 };
 
@@ -25,6 +27,24 @@ export const CHANNELS = {
     label: '歌った曲リスト',
     listGid: '0',
     setlistGid: 'replace_with_main_setlist_gid',
+    handle: '@一色イズ',
+    avatarUrl: 'https://yt3.googleusercontent.com/S7IoWZcIetb6pyLz2MOaeED82tlocv0N87QXfjWyhRlhzyDC2fQVIh3rejXB0wCt5CMzXYry=s900-c-k-c0x00ffffff-no-rj',
+    bannerUrl: 'https://yt3.googleusercontent.com/nnunqicKoctlcAXnWBSjBW8jMZLK35lycxkZGHMOflGcEnrSQpge2xMO0ojJxH3yAj4hYE3IqyU=w1707-fcrop64=1,00005a57ffffa5a8-k-c0xffffffff-no-nd-rj',
+    intro: [
+      '唯一無二の主人公ボイス.ᐟ.ᐟ💫',
+      'Vsingerの一色（いっしき）イズです️️꙳⟡',
+      'ルミステ所属🌟',
+      '㊗️1万人達成.ᐟ 2025/10/17デビュー.ᐟ',
+      '',
+      'ファンネーム : #イズいろ',
+      'ファンアート : #イズ色キャンバス',
+      '推しマ : 💫✳️',
+      '',
+      '総合 : #一色イズ',
+      '配信（全般） : #イズライブ',
+      '配信（歌枠） : #いずちゅーん',
+      '切り抜き : #イズ色クリップ',
+    ].join('\n'),
   },
 };
 

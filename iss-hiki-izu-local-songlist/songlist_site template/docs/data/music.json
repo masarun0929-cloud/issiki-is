@@ -1,0 +1,69 @@
+{
+  "videos": [
+    {
+      "id": "2qRCmdZkrxA",
+      "title": "花の塔 / さユり Covered by 一色イズ【歌ってみた】",
+      "url": "https://www.youtube.com/watch?v=2qRCmdZkrxA",
+      "type": "cover",
+      "category": "歌みた",
+      "playlistId": "none",
+      "playlistTitle": "𝐂𝐨𝐯𝐞𝐫 𝐒𝐨𝐧𝐠",
+      "playlistIndex": 1,
+      "duration": 276,
+      "thumbnail": "https://i.ytimg.com/vi/2qRCmdZkrxA/hqdefault.jpg",
+      "originalArtist": "さユり"
+    },
+    {
+      "id": "wGS0XZ95d3E",
+      "title": "フォニイ / ツミキ Covered by 一色イズ【歌ってみた】",
+      "url": "https://www.youtube.com/watch?v=wGS0XZ95d3E",
+      "type": "cover",
+      "category": "歌みた",
+      "playlistId": "none",
+      "playlistTitle": "𝐂𝐨𝐯𝐞𝐫 𝐒𝐨𝐧𝐠",
+      "playlistIndex": 2,
+      "duration": 191,
+      "thumbnail": "https://i.ytimg.com/vi/wGS0XZ95d3E/hqdefault.jpg",
+      "originalArtist": "ツミキ"
+    },
+    {
+      "id": "uqOFCwhGjxg",
+      "title": "【一人二役で👀】目撃！テト31世🎉🎃🧟 / はろける💫Covered by 一色イズ【歌ってみた】",
+      "url": "https://www.youtube.com/watch?v=uqOFCwhGjxg",
+      "type": "cover",
+      "category": "歌みた",
+      "playlistId": "none",
+      "playlistTitle": "𝐂𝐨𝐯𝐞𝐫 𝐒𝐨𝐧𝐠",
+      "playlistIndex": 3,
+      "duration": 139,
+      "thumbnail": "https://i.ytimg.com/vi/uqOFCwhGjxg/hqdefault.jpg",
+      "originalArtist": "はろける"
+    },
+    {
+      "id": "DnyJhH6H81w",
+      "title": "チェリーポップ / DECO*27🍒💫Covered by 一色イズ【歌ってみた】",
+      "url": "https://www.youtube.com/watch?v=DnyJhH6H81w",
+      "type": "cover",
+      "category": "歌みた",
+      "playlistId": "none",
+      "playlistTitle": "𝐂𝐨𝐯𝐞𝐫 𝐒𝐨𝐧𝐠",
+      "playlistIndex": 4,
+      "duration": 143,
+      "thumbnail": "https://i.ytimg.com/vi/DnyJhH6H81w/hqdefault.jpg",
+      "originalArtist": "DECO*27"
+    },
+    {
+      "id": "25S6GCgkE-U",
+      "title": "【full初投稿】UNDEAD / YOASOBI Covered by 一色イズ【歌ってみた】",
+      "url": "https://www.youtube.com/watch?v=25S6GCgkE-U",
+      "type": "cover",
+      "category": "歌みた",
+      "playlistId": "none",
+      "playlistTitle": "𝐂𝐨𝐯𝐞𝐫 𝐒𝐨𝐧𝐠",
+      "playlistIndex": 5,
+      "duration": 191,
+      "thumbnail": "https://i.ytimg.com/vi/25S6GCgkE-U/hqdefault.jpg",
+      "originalArtist": "YOASOBI"
+    }
+  ]
+}

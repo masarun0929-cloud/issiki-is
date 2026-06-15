@@ -3,6 +3,7 @@ import { $, escapeHtml, fmtDate, daysClass, debounce, highlightText } from '../u
 import { search, matchReasons } from '../search.js';
 import { writeUrlState } from '../url-state.js';
 import { SHOW_SONG_KEYS, SITE } from '../config.js';
+import { icon } from '../icons.js';
 
 let searchInputEl, sortSelectEl, genreSelectEl, filterButtonsEl, genreChipsEl, listEl, countEl, moreBtnWrap;
 const SETLIST_STORAGE_KEY = `${SITE.storagePrefix || 'songlist'}-setlist-v1`;
@@ -13,7 +14,7 @@ export function renderSongs() {
   const panel = $('#panel-songs');
   panel.innerHTML = `
     <div class="section-header">
-      <h2>${state.singerMode ? '🎙 選曲ボード' : '🎵 全曲リスト'}</h2>
+      <h2>${state.singerMode ? `${icon('mic')} 選曲ボード` : `${icon('music')} 全曲リスト`}</h2>
       <span class="count-pill" id="songs-count">—</span>
     </div>
     <div class="mobile-panel-switch">
@@ -21,7 +22,7 @@ export function renderSongs() {
     </div>
     <div id="songs-filter-panel" class="mobile-panel mobile-panel-filters is-open">
       <div class="controls">
-        <input id="songs-search" class="text-input" type="search" placeholder="🔍 曲名・アーティスト・artist:miwa などで検索" value="${escapeHtml(state.songsQuery)}">
+        <input id="songs-search" class="text-input" type="search" placeholder="曲名・アーティスト・artist:miwa などで検索" value="${escapeHtml(state.songsQuery)}">
         <select id="songs-sort" class="select-input">
           <option value="count-desc">回数（多）</option>
           <option value="count-asc">回数（少）</option>

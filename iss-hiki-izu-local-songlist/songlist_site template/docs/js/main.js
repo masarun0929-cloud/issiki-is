@@ -5,7 +5,10 @@ import { initTheme, onThemeChange } from './theme.js';
 import { onRerenderNeeded, destroyAllCharts } from './charts.js';
 import { $, $$, escapeHtml, fmtDate, daysSince, isLink, formatNumber, streamKey } from './utils.js';
 import { CHANNELS, COMBINED_CHANNEL, DEFAULT_CHANNEL, SHOW_AUDIENCE_SWITCH, SHOW_COMBINED_CHANNEL, SHOW_SONG_KEYS, SITE, SOURCE_URL } from './config.js?v=20260523-live';
+import { icon } from './icons.js';
 import { readUrlState, writeUrlState } from './url-state.js';
+import { initSearchPalette, openSearchPalette } from './views/search-palette.js';
+import { notifyYtReady, setApiLoader, initMusicPlayer, releaseMusicPlayerVideo, pauseMusicPlayer } from './music-player.js';
 
 initTheme();
 applySiteConfig();
@@ -17,6 +20,7 @@ const VIEW_LOADERS = {
   timeline:  () => import('./views/timeline.js').then(m => m.renderTimeline),
   lives:     () => import('./views/lives.js').then(m => m.renderLives),
   analytics: () => import('./views/analytics.js').then(m => m.renderAnalytics),
+  playlists: () => import('./views/playlists.js').then(m => m.renderPlaylists),
 };
 const rendererCache = new Map();
 let renderToken = 0;
@@ -36,7 +40,9 @@ async function getRenderer(tab) {
 }
 
 async function renderTab(tab = state.activeTab) {
-  if (!state.data || !isValidTab(tab)) return;
+  // playlists は state.data なしでも描画可能（music.json を独自 fetch する）
+  if (tab !== 'playlists' && (!state.data || !isValidTab(tab))) return;
+  if (!isValidTab(tab)) return;
   const token = ++renderToken;
   try {
     const renderer = await getRenderer(tab);
@@ -582,6 +588,121 @@ function initWelcomeTip() {
   });
 }
 
+// ─── チャンネル紹介モーダル ────────────────────────────────────────────────────
+
+/** config から CH_INFO 相当を動的に構築する */
+function _buildChInfo() {
+  const ch = CHANNELS.new;
+  // officialLinks から YouTube URL を優先取得
+  const ytLink = SITE.officialLinks?.find(l => l.className === 'youtube' || l.label === 'YouTube');
+  const url = ytLink?.url ?? SITE.officialLinks?.[0]?.url ?? '#';
+
+  // officialLinks を ch-card-link 用にマップ（icon キー: 'link' / 'external' のみ使用）
+  const ICON_MAP = {
+    youtube:  icon('video'),
+    'x-link': icon('external'),
+  };
+  const links = (SITE.officialLinks ?? []).map(l => ({
+    icon:  ICON_MAP[l.className] ?? icon('link'),
+    label: l.label,
+    url:   l.url,
+  }));
+
+  return {
+    name:      SITE.creatorName,
+    handle:    ch.handle ?? '',
+    url,
+    label:     ch.label,
+    desc:      ch.intro ?? '',
+    avatarUrl: ch.avatarUrl ?? '',
+    bannerUrl: ch.bannerUrl ?? '',
+    links,
+  };
+}
+
+function _buildChCard(key) {
+  if (key !== 'new') return '';
+  const info = _buildChInfo();
+
+  // バナー部分（画像URL があれば img、なければグラデーション+ラベル）
+  const bannerInner = info.bannerUrl
+    ? `<img class="ch-card-banner-img" src="${escapeHtml(info.bannerUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">
+       <span class="ch-card-banner-label ch-card-banner-label--over">${escapeHtml(info.label)}</span>`
+    : `<span class="ch-card-banner-label">${escapeHtml(info.label)}</span>`;
+
+  // アバター部分（画像URL があれば img、なければ creatorName 先頭1文字 or heroIcon）
+  const avatarFallback = (SITE.creatorName ?? '').charAt(0) || SITE.heroIcon || '?';
+  const avatarInner = info.avatarUrl
+    ? `<img class="ch-card-avatar-img" src="${escapeHtml(info.avatarUrl)}" alt="${escapeHtml(info.name)}" loading="lazy" referrerpolicy="no-referrer">`
+    : avatarFallback;
+
+  // 説明文（改行対応、空なら非表示）
+  const descHtml = info.desc
+    ? `<p class="ch-card-desc">${info.desc.split('\n').map(l => escapeHtml(l)).join('<br>')}</p>`
+    : '';
+
+  // リンク一覧
+  const linksHtml = info.links?.length ? `
+    <div class="ch-card-links">
+      ${info.links.map(l => `
+        <a class="ch-card-link" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">
+          <span class="ch-card-link-icon" aria-hidden="true">${l.icon}</span>
+          <span>${escapeHtml(l.label)}</span>
+        </a>`).join('')}
+    </div>` : '';
+
+  return `
+    <div class="ch-card ch-card--${key}">
+      <div class="ch-card-banner ch-card-banner--${key}${info.bannerUrl ? ' ch-card-banner--img' : ''}">
+        ${bannerInner}
+      </div>
+      <div class="ch-card-body">
+        <div class="ch-card-header">
+          <div class="ch-card-avatar ch-card-avatar--${key}${info.avatarUrl ? ' ch-card-avatar--img' : ''}">${avatarInner}</div>
+          <div class="ch-card-meta">
+            <div class="ch-card-name">${escapeHtml(info.name)}</div>
+            ${info.handle ? `<div class="ch-card-handle">${escapeHtml(info.handle)}</div>` : ''}
+          </div>
+        </div>
+        ${descHtml}
+        ${linksHtml}
+        <div class="ch-card-actions">
+          <a class="ch-card-yt-btn" href="${escapeHtml(info.url)}" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z"/></svg>
+            YouTubeチャンネルへ
+          </a>
+        </div>
+      </div>
+    </div>`;
+}
+
+function openChannelModal(chKey) {
+  const modal = $('#ch-modal');
+  const body  = $('#ch-modal-body');
+  if (!modal || !body) return;
+
+  // 'new' → 1枚表示。それ以外(undefined/all 等) も 'new' 1枚で対応
+  body.innerHTML = _buildChCard('new');
+  modal.hidden = false;
+  $('#ch-modal-close')?.focus();
+}
+
+function initChannelModal() {
+  const modal    = $('#ch-modal');
+  const closeBtn = $('#ch-modal-close');
+  if (!modal || !closeBtn) return;
+
+  const close = () => { modal.hidden = true; };
+  closeBtn.addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
+
+  // data-ch-modal 属性を持つボタンにリスナーを付与
+  document.querySelectorAll('[data-ch-modal]').forEach(btn => {
+    btn.addEventListener('click', () => openChannelModal(btn.dataset.chModal));
+  });
+}
+
 async function init() {
   showLoading();
   try {
@@ -670,6 +791,55 @@ initSongModal();
 initMobileMenu();
 initPageTopToast();
 initWelcomeTip();
+initChannelModal();
+
+// ── 音楽プレイヤー: YouTube IFrame API ────────────────────────────────
+function _loadYtApi() {
+  if (document.getElementById('yt-iframe-api')) return;
+  const tag = document.createElement('script');
+  tag.id = 'yt-iframe-api';
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+window.onYouTubeIframeAPIReady = () => notifyYtReady();
+setApiLoader(_loadYtApi);
+initMusicPlayer();
+
+// ── コマンドパレット ──────────────────────────────────────────────────
+initSearchPalette({
+  onSong: (song) => {
+    if (song?.key) openSongDetail(song.key);
+  },
+  onStream: (stream) => {
+    if (stream?.url) window.__openStreamViewer?.(stream);
+  },
+  onArtist: (artist) => {
+    if (artist) searchArtistName(artist);
+  },
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+    e.preventDefault();
+    openSearchPalette();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    openSearchPalette();
+  }
+});
+
+// ── stream viewer 開閉時に music player を制御 ──────────────────────
+// タイムライン等のビューが window.__openStreamViewer を呼んだとき、
+// music bar と競合しないよう音楽プレイヤーを一時停止する。
+{
+  const _origOpen = window.__openStreamViewer;
+  window.__openStreamViewer = function (...args) {
+    try { releaseMusicPlayerVideo(); } catch (_) {}
+    if (_origOpen) return _origOpen(...args);
+  };
+}
 
 // Re-render charts on theme change
 onRerenderNeeded(() => {

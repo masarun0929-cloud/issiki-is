@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { $, escapeHtml, fmtDate, daysClass } from '../utils.js';
 import { RANKING_LIST_LIMIT } from '../config.js';
+import { icon } from '../icons.js';
 
 export function renderRanking() {
   const { songs } = state.data;
@@ -15,7 +16,7 @@ export function renderRanking() {
   const panel = $('#panel-ranking');
   panel.innerHTML = `
     <div class="section-header">
-      <h2>🏆 歌唱回数ランキング</h2>
+      <h2>${icon('rank')} 歌唱回数ランキング</h2>
       <span class="count-pill">${songs.length}曲中</span>
     </div>
     <div class="podium">

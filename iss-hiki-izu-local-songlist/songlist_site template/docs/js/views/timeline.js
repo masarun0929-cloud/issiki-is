@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { TIMELINE_INITIAL, TIMELINE_STEP } from '../config.js';
 import { $, $$, escapeHtml, fmtDate, streamKey } from '../utils.js';
+import { icon } from '../icons.js';
 
 export function renderTimeline() {
   const { streams } = state.data;
@@ -12,7 +13,7 @@ export function renderTimeline() {
   const panel = $('#panel-timeline');
   panel.innerHTML = `
     <div class="section-header">
-      <h2>📅 配信タイムライン</h2>
+      <h2>${icon('calendar')} 配信タイムライン</h2>
       <span class="count-pill">${visible.length}枠</span>
     </div>
     <div id="timeline-filter-banner"></div>
@@ -26,7 +27,7 @@ export function renderTimeline() {
       (n, s) => n + s.songs.filter(sg => sg.key === filter.key).length, 0);
     banner.innerHTML = `
       <div class="filter-banner">
-        <span class="filter-icon">🔎</span>
+        <span class="filter-icon">${icon('search')}</span>
         <div class="filter-text">
           <strong>${escapeHtml(filter.title)}</strong>
           <span style="color:var(--ink-mute);"> / ${escapeHtml(filter.artist)}</span>
@@ -104,7 +105,7 @@ function renderItem(s, idx, filter) {
       <header class="timeline-head">
         <span class="timeline-date">${fmtDate(s.date)}</span>
         <span class="timeline-stream-no">第${s.index}枠</span>
-        <span class="timeline-songcount">🎤 ${s.songs.length}曲</span>
+        <span class="timeline-songcount">${icon('mic')} ${s.songs.length}曲</span>
         ${copyHtml}
         ${watchHtml}
       </header>
