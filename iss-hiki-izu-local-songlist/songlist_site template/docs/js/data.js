@@ -16,6 +16,7 @@ const STATIC_URLS = {
   meta: '/data/meta.json',
   songs: '/data/songs.json',
   streams: '/data/streams.json',
+  lives: '/data/lives.json',
 };
 const FALLBACK_URL = '/api/data';
 
@@ -280,6 +281,7 @@ async function loadStaticSplit(metaPayload = null, onSongsReady = null) {
   // songs と streams を並行取得（streams が大きいので songs の方が先に届く）
   const songsPromise   = fetchJson(STATIC_URLS.songs);
   const streamsPromise = fetchJson(STATIC_URLS.streams);
+  const livesPromise   = loadLives();
 
   if (!meta) {
     meta = await fetchJson(STATIC_URLS.meta);
@@ -335,12 +337,28 @@ async function loadStaticSplit(metaPayload = null, onSongsReady = null) {
       artists: [],
     };
   }
-  return hydratePayload({
+  const payload = hydratePayload({
     channels,
     combined: { stats: combinedStatsFromMeta(meta) },
     generatedAt: meta.generatedAt || null,
     dataGeneratedDate: parseGeneratedAt(meta.generatedAt),
   });
+  return {
+    ...payload,
+    ...(await livesPromise),
+  };
+}
+
+async function loadLives() {
+  try {
+    const payload = await fetchJson(STATIC_URLS.lives);
+    return {
+      lives: Array.isArray(payload.lives) ? payload.lives : [],
+      liveStats: payload.stats || {},
+    };
+  } catch (_) {
+    return { lives: [], liveStats: {} };
+  }
 }
 
 async function loadStaticMeta() {
@@ -368,6 +386,7 @@ async function loadStaticMeta() {
     generatedAt: meta.generatedAt || null,
     dataGeneratedDate: parseGeneratedAt(meta.generatedAt),
     fullLoaded: false,
+    ...(await loadLives()),
   };
 }
 

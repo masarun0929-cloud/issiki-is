@@ -180,7 +180,7 @@
 .g4 { background: var(--accent-strong); }
 .g5 { background: #7ad99c; }
 .g6 { background: #d49a6a; }
-.g7 { background: #9bdcf7; }
+.g7 { background: var(--primary-soft); }
 
 .monthly-bars {
   display: grid;
@@ -249,10 +249,10 @@
   transition: transform 0.1s ease, outline 0.1s ease;
   cursor: default;
 }
-.heatmap-cell.l1 { background: #c2ecff; }
-.heatmap-cell.l2 { background: #6cc6ec; }
-.heatmap-cell.l3 { background: #2d8fb9; }
-.heatmap-cell.l4 { background: #ff9eb5; }
+.heatmap-cell.l1 { background: #a9ece8; }
+.heatmap-cell.l2 { background: #18dcd6; }
+.heatmap-cell.l3 { background: #08a9b2; }
+.heatmap-cell.l4 { background: #ff72b6; }
 :root[data-theme="dark"] .heatmap-cell,
 :root[data-theme="auto"] .heatmap-cell { background: #1a2d44; }
 :root[data-theme="dark"] .heatmap-cell.l1,
@@ -260,9 +260,9 @@
 :root[data-theme="dark"] .heatmap-cell.l2,
 :root[data-theme="auto"] .heatmap-cell.l2 { background: #4a8fbf; }
 :root[data-theme="dark"] .heatmap-cell.l3,
-:root[data-theme="auto"] .heatmap-cell.l3 { background: #6cc6ec; }
+:root[data-theme="auto"] .heatmap-cell.l3 { background: #18dcd6; }
 :root[data-theme="dark"] .heatmap-cell.l4,
-:root[data-theme="auto"] .heatmap-cell.l4 { background: #ff9eb5; }
+:root[data-theme="auto"] .heatmap-cell.l4 { background: #ff72b6; }
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] .heatmap-cell { background: #1a2d44; }
@@ -353,7 +353,7 @@
 }
 .podium-card.rank-1 .podium-medal {
   color: #5e4311;
-  background: linear-gradient(180deg, #fff4be, #f4c44a);
+  background: linear-gradient(180deg, #fff4be, var(--gold));
   border-color: #d3a22b;
 }
 .podium-card.rank-2 .podium-medal {
@@ -2283,4 +2283,133 @@ body[data-audience="listener"] [data-mobile-panel-toggle="setlist"] {
 .recap-sub {
   color: var(--ink-mute);
   font-size: 11px;
+}
+.live-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin:0 0 18px;
+}
+.live-summary-card{
+  background:linear-gradient(180deg,var(--surface),var(--surface-2));
+  border:1px solid var(--border-soft);
+  border-radius:16px;
+  padding:14px 16px;
+  box-shadow:var(--shadow-sm);
+}
+.live-summary-card span{
+  display:block;
+  color:var(--ink-mute);
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.06em;
+  margin-bottom:5px;
+}
+.live-summary-card strong{
+  color:var(--ink);
+  font-size:clamp(20px,3vw,30px);
+  line-height:1.1;
+}
+.live-list{
+  display:grid;
+  gap:14px;
+}
+.live-card{
+  background:var(--surface);
+  border:1px solid var(--border-soft);
+  border-radius:18px;
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+.live-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding:16px 18px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--primary-soft) 70%,transparent),color-mix(in srgb,var(--accent-soft) 50%,transparent));
+  border-bottom:1px solid var(--border-soft);
+}
+.live-date{
+  color:var(--primary-strong);
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.08em;
+  margin-bottom:5px;
+}
+.live-title{
+  color:var(--ink);
+  font-size:17px;
+  font-weight:900;
+  line-height:1.45;
+}
+.live-song-count{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  padding:4px 10px;
+  border-radius:999px;
+  background:var(--surface);
+  color:var(--ink-soft);
+  border:1px solid var(--border);
+  font-size:12px;
+  font-weight:900;
+}
+.live-setlist{
+  list-style:none;
+  margin:0;
+  padding:10px 14px 14px;
+}
+.live-setlist li{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:9px 4px;
+  border-bottom:1px solid var(--border-soft);
+}
+.live-setlist li:last-child{
+  border-bottom:0;
+}
+.live-song-number{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:var(--primary-soft);
+  color:var(--primary-strong);
+  font-size:12px;
+  font-weight:900;
+}
+.live-song-title{
+  min-width:0;
+  color:var(--ink);
+  font-weight:800;
+  line-height:1.45;
+}
+.live-song-artist{
+  color:var(--ink-mute);
+  font-size:12px;
+  font-weight:700;
+  text-align:right;
+}
+@media(max-width:700px){
+  .live-summary-grid{
+    grid-template-columns:1fr;
+  }
+  .live-card-head{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  .live-setlist li{
+    grid-template-columns:auto minmax(0,1fr);
+  }
+  .live-song-artist{
+    grid-column:2;
+    text-align:left;
+  }
 }

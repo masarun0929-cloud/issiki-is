@@ -1,4 +1,4 @@
-const VALID_TABS = new Set(['dashboard', 'ranking', 'songs', 'timeline', 'analytics', 'playlists']);
+const VALID_TABS = new Set(['dashboard', 'ranking', 'songs', 'timeline', 'lives', 'analytics', 'playlists']);
 const VALID_CHANNELS = new Set(['new', 'old', 'all']);
 const VIDEO_ID_RE = /^[\w-]{11}$/;
 const DEFAULTS = {

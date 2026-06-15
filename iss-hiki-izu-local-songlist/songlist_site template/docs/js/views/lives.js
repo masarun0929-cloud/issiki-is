@@ -1,4 +1,4 @@
-import { state } from '../state.js';
+import { state } from '../store.js';
 import { $, escapeHtml, fmtDate, formatNumber } from '../utils.js';
 import { icon } from '../icons.js';
 

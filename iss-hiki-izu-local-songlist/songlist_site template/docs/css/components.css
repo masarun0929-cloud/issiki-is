@@ -124,12 +124,12 @@ button.official-link {
   align-items: flex-end;
   padding: 10px 16px;
   position: relative;
-  background: linear-gradient(135deg, #4ab2dc, #9bdcf7);
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
   overflow: hidden;
 }
 
 .ch-card-banner--old {
-  background: linear-gradient(135deg, #c8a02a, #f4c44a 50%, #d49a6a);
+  background: linear-gradient(135deg, #c8a02a, var(--gold) 50%, #d49a6a);
 }
 
 /* バナー画像あり */
@@ -205,7 +205,7 @@ button.official-link {
 }
 
 .ch-card-avatar--old {
-  background: linear-gradient(135deg, #c8a02a, #f4c44a);
+  background: linear-gradient(135deg, #c8a02a, var(--gold));
 }
 
 .ch-card-meta {
@@ -817,12 +817,12 @@ button.official-link {
   font-size: 11px;
   font-weight: 600;
   background: var(--primary-soft);
-  color: #1a6b8d; /* 5.24:1 on #dff5ff — passes WCAG AA */
+  color: var(--primary-strong);
   padding: 2px 9px;
   border-radius: 999px;
 }
 :root[data-theme="dark"] .card-title .pill {
-  color: var(--primary-strong); /* dark: #9bdcf7 on #1d3550 = 8.3:1 ✓ */
+  color: var(--primary-strong);
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] .card-title .pill { color: var(--primary-strong); }
@@ -874,14 +874,14 @@ button.official-link {
 }
 .count-pill {
   background: var(--primary-soft);
-  color: #1a6b8d; /* 5.24:1 on #dff5ff — passes WCAG AA */
+  color: var(--primary-strong);
   padding: 3px 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
 }
 :root[data-theme="dark"] .count-pill {
-  color: var(--primary-strong); /* dark: #9bdcf7 on #1d3550 = 8.3:1 ✓ */
+  color: var(--primary-strong);
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] .count-pill { color: var(--primary-strong); }
@@ -2935,7 +2935,7 @@ body.has-sv-fullscreen .container { z-index: auto; }
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 251, 255, 0.98)),
     var(--surface);
-  box-shadow: 0 24px 64px rgba(106, 184, 219, 0.34);
+  box-shadow: var(--shadow-lg);
   color: var(--ink);
   padding: 18px;
 }
@@ -5571,7 +5571,7 @@ body.has-music-bar { padding-bottom: 72px; }
 .mbar-thumb-overlay:focus-visible::before {
   opacity: 1;
   transform: scale(1.12);
-  background: var(--primary-strong, #1f789f);
+  background: var(--primary-strong, #08a9b2);
 }
 
 .mbar-text {

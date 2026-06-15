@@ -17,6 +17,7 @@ const VIEW_LOADERS = {
   ranking:   () => import('./views/ranking.js').then(m => m.renderRanking),
   songs:     () => import('./views/songs.js').then(m => m.renderSongs),
   timeline:  () => import('./views/timeline.js').then(m => m.renderTimeline),
+  lives:     () => import('./views/lives.js').then(m => m.renderLives),
   analytics: () => import('./views/analytics.js').then(m => m.renderAnalytics),
   playlists: () => import('./views/playlists.js').then(m => m.renderPlaylists),
 };
@@ -52,6 +53,7 @@ function renderDeferredPanel(tab, options = {}) {
     ranking: 'ランキング',
     songs: '曲リスト',
     timeline: '配信タイムライン',
+    lives: 'ライブ情報',
     analytics: 'アナリティクス',
   };
   panel.innerHTML = `
@@ -76,6 +78,7 @@ function renderPanelLoading(tab) {
 function applyPartialData(partial) {
   if (state.channelData?.fullLoaded) return;
   state.channelData = partial; // partialLoaded: true, fullLoaded: false
+  applyLiveData(partial);
   // state.data を常に最新の channelData に合わせる（タブ問わず）
   const ch = getDataset(state.channel) ? state.channel : DEFAULT_CHANNEL;
   const newData = getDataset(ch);
@@ -90,9 +93,18 @@ function applyPartialData(partial) {
 function applyFullData(fullData) {
   state.channelData = fullData;
   state.channelData.fullLoaded = true;
+  applyLiveData(fullData);
   const ch = getDataset(state.channel) ? state.channel : DEFAULT_CHANNEL;
   switchChannel(ch, { resetSearch: false, updateUrl: false, render: false });
   renderTab(state.activeTab, { autoLoad: false });
+}
+
+function applyLiveData(payload) {
+  if (!payload || (!Object.prototype.hasOwnProperty.call(payload, 'lives') && !Object.prototype.hasOwnProperty.call(payload, 'liveStats'))) {
+    return;
+  }
+  state.lives = Array.isArray(payload?.lives) ? payload.lives : [];
+  state.liveStats = payload?.liveStats || {};
 }
 
 function startFullDataLoad() {
@@ -3271,6 +3283,7 @@ async function init() {
   try {
     const channelData = await loadInitial();
     state.channelData = channelData;
+    applyLiveData(channelData);
     // meta.json 完了直後に songs/streams の fetch を開始（ヒーロー描画処理を待たない）
     if (!fullDataPromise && !channelData.fullLoaded) {
       startFullDataLoad();

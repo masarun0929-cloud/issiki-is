@@ -14,7 +14,7 @@
 
 // ─── URL直列化可能な状態 (SSoT = URL) ────────────────────────────────────────
 
-const VALID_TABS = new Set(['dashboard', 'ranking', 'songs', 'timeline', 'analytics', 'playlists']);
+const VALID_TABS = new Set(['dashboard', 'ranking', 'songs', 'timeline', 'lives', 'analytics', 'playlists']);
 const FAVORITES_KEY = 'isshiki-izu-favorites-v1';
 const VALID_CHANNELS = new Set(['new', 'old', 'all']);
 const VIDEO_ID_RE = /^[\w-]{11}$/;
@@ -129,6 +129,8 @@ const DEFAULT_IN_MEMORY = {
   fullLoaded: false,
   channelData: null,
   data: null,
+  lives: [],
+  liveStats: {},
 };
 
 // ─── ストアインスタンス ──────────────────────────────────────────────────────
@@ -248,6 +250,12 @@ export const state = {
 
   get data() { return get('data'); },
   set data(v) { set('data', v); },
+
+  get lives() { return get('lives'); },
+  set lives(v) { set('lives', v); },
+
+  get liveStats() { return get('liveStats'); },
+  set liveStats(v) { set('liveStats', v); },
 
   get audience() { return get('audience'); },
   set audience(v) { set('audience', v); },
