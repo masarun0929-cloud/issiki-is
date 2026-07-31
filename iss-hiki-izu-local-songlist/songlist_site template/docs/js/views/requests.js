@@ -3,6 +3,19 @@ import { icon } from '../icons.js';
 
 const API = '/api/song-requests';
 
+async function readApiJson(res) {
+  const text = await res.text();
+  if (!text) {
+    if (!res.ok) throw new Error('リクエストAPIが見つかりません');
+    return {};
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(res.ok ? 'APIの応答を読み取れませんでした' : 'リクエストAPIが見つかりません');
+  }
+}
+
 export function renderRequests() {
   const panel = $('#panel-requests');
   if (!panel) return;
@@ -91,7 +104,7 @@ function initForm() {
           requesterName: $('#req-name').value.trim(),
         }),
       });
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
 
       showMsg(msg, '✅ リクエストを送信しました！ありがとうございます', 'success');
@@ -112,8 +125,8 @@ async function loadList() {
 
   try {
     const res = await fetch(`${API}?limit=100`);
-    if (!res.ok) throw new Error('取得に失敗しました');
-    const { items } = await res.json();
+    const { items, error } = await readApiJson(res);
+    if (!res.ok) throw new Error(error || '取得に失敗しました');
     renderList(list, items || []);
   } catch (err) {
     list.innerHTML = `<div class="state-card"><div class="msg">⚠️ ${escapeHtml(err.message)}</div></div>`;
@@ -167,7 +180,7 @@ async function vote(btn) {
 
   try {
     const res = await fetch(`${API}/${id}/vote`, { method: 'POST' });
-    const data = await res.json();
+    const data = await readApiJson(res);
     if (!res.ok) throw new Error(data.error || 'エラー');
     const n = data.item?.voteCount ?? data.item?.vote_count;
     if (n != null) count.textContent = n;

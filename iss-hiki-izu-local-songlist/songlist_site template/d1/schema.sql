@@ -83,6 +83,18 @@ CREATE TABLE IF NOT EXISTS live_event_songs (
   UNIQUE(live_event_id, position)
 );
 
+CREATE TABLE IF NOT EXISTS song_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  artist TEXT NOT NULL DEFAULT '',
+  url TEXT NOT NULL DEFAULT '',
+  requester_name TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'unregistered',
+  vote_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_songs_artist_id ON songs(artist_id);
 CREATE INDEX IF NOT EXISTS idx_songs_display_key ON songs(display_key);
 CREATE INDEX IF NOT EXISTS idx_songs_genre ON songs(genre);
@@ -93,6 +105,8 @@ CREATE INDEX IF NOT EXISTS idx_song_channel_stats_channel_id ON song_channel_sta
 CREATE INDEX IF NOT EXISTS idx_live_events_date ON live_events(performed_on DESC);
 CREATE INDEX IF NOT EXISTS idx_live_event_songs_event_id ON live_event_songs(live_event_id);
 CREATE INDEX IF NOT EXISTS idx_live_event_songs_song_id ON live_event_songs(song_id);
+CREATE INDEX IF NOT EXISTS idx_song_requests_votes ON song_requests(vote_count DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_song_requests_created ON song_requests(created_at DESC);
 
 INSERT INTO channels (code, name, sort_order)
 VALUES
