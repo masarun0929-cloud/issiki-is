@@ -10,6 +10,12 @@
 
 import { $, escapeHtml, youtubeVideoId, youtubeThumb } from './utils.js';
 import { icon } from './icons.js';
+import { openStreamViewer, openMusicQueueInViewer, closeStreamMiniPlayer, registerMusicBridge, _loadYtApi } from './player/stream-player.js';
+import { SITE } from './config.js';
+
+const LS_REPEAT_ALL_KEY = `${SITE.storagePrefix}-repeat-all`;
+const LS_SHUFFLE_KEY = `${SITE.storagePrefix}-shuffle`;
+const LS_VOLUME_KEY = `${SITE.storagePrefix}-volume`;
 
 /* ── 状態 ────────────────────────────────────────────────────────────────── */
 
@@ -20,17 +26,17 @@ let _external = null;
 let _progIv   = null;
 let _continuous = true;
 let _repeatOne = false;
-let _repeatAll = localStorage.getItem('kanaRepeatAll') === '1';
+let _repeatAll = localStorage.getItem(LS_REPEAT_ALL_KEY) === '1';
 let _seenEnded = false;
-let _shuffle  = localStorage.getItem('kanaShuffle') === '1';
+let _shuffle  = localStorage.getItem(LS_SHUFFLE_KEY) === '1';
 let _queuePopupOpen = false;
 
 let _ytReady = false;
 const _ytQ   = [];
-let _apiLoader = null;
+let _apiLoader = _loadYtApi;
 
-const _storedVol = () => Math.max(0, Math.min(100, parseInt(localStorage.getItem('kanaVol') ?? '100') || 100));
-const _saveVol   = v  => localStorage.setItem('kanaVol', String(v));
+const _storedVol = () => Math.max(0, Math.min(100, parseInt(localStorage.getItem(LS_VOLUME_KEY) ?? '100') || 100));
+const _saveVol   = v  => localStorage.setItem(LS_VOLUME_KEY, String(v));
 const _volIcon   = () => icon('volume');
 
 /* ── YT API 連携 ─────────────────────────────────────────────────────────── */
@@ -41,8 +47,7 @@ export function notifyYtReady() {
   _ytQ.splice(0).forEach(fn => fn());
 }
 
-/** main.js から _loadYtApi を注入する（循環 import 回避） */
-export function setApiLoader(fn) { _apiLoader = fn; }
+// YT API ローダーはプレイヤーサブシステムのものを直接利用する
 
 function _onYtReady(fn) {
   if (_ytReady && window.YT?.Player) { fn(); return; }
@@ -74,30 +79,30 @@ export function initMusicPlayer() {
         <span class="mbar-type-badge" id="mbar-type-badge"></span>
       </div>
       <div class="mbar-controls">
-        <button class="mbar-mode-btn is-on" id="mbar-continuous" type="button" aria-pressed="true" title="連続再生">∞</button>
-        <button class="mbar-ctrl-btn" id="mbar-prev" type="button" aria-label="前の曲">
+        <button class="mbar-mode-btn is-on" id="mbar-continuous" type="button" aria-pressed="true" data-tooltip="連続再生" data-tooltip-pos="top">${icon('infinity')}</button>
+        <button class="mbar-ctrl-btn" id="mbar-prev" type="button" aria-label="前の曲" data-tooltip="前の曲" data-tooltip-pos="top">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
           </svg>
         </button>
-        <button class="mbar-play-btn" id="mbar-play" type="button" data-playing="0" aria-label="再生/停止"></button>
-        <button class="mbar-ctrl-btn" id="mbar-next" type="button" aria-label="次の曲">
+        <button class="mbar-play-btn" id="mbar-play" type="button" data-playing="0" aria-label="再生/停止" data-tooltip="再生 / 一時停止" data-tooltip-pos="top"></button>
+        <button class="mbar-ctrl-btn" id="mbar-next" type="button" aria-label="次の曲" data-tooltip="次の曲" data-tooltip-pos="top">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 18l8.5-6L6 6v12zM16 6h2v12h-2z"/>
           </svg>
         </button>
-        <button class="mbar-mode-btn" id="mbar-repeat" type="button" aria-pressed="false" title="1曲リピート">↻</button>
-        <button class="mbar-mode-btn${_shuffle ? ' is-on' : ''}" id="mbar-shuffle" type="button" aria-pressed="${_shuffle ? 'true' : 'false'}" title="シャッフル再生">
+        <button class="mbar-mode-btn" id="mbar-repeat" type="button" aria-pressed="false" data-tooltip="1曲リピート" data-tooltip-pos="top">${icon('repeatOne')}</button>
+        <button class="mbar-mode-btn${_shuffle ? ' is-on' : ''}" id="mbar-shuffle" type="button" aria-pressed="${_shuffle ? 'true' : 'false'}" data-tooltip="シャッフル再生" data-tooltip-pos="top">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
           </svg>
         </button>
-        <button class="mbar-mode-btn${_repeatAll ? ' is-on' : ''}" id="mbar-repeat-all" type="button" aria-pressed="${_repeatAll ? 'true' : 'false'}" title="全体リピート（ON: 最後の曲が終わったら先頭へ戻る）">
+        <button class="mbar-mode-btn${_repeatAll ? ' is-on' : ''}" id="mbar-repeat-all" type="button" aria-pressed="${_repeatAll ? 'true' : 'false'}" data-tooltip="全体リピート（ON: 最後の曲が終わったら先頭へ戻る）" data-tooltip-pos="top">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
           </svg>
         </button>
-        <button class="mbar-mode-btn mbar-queue-btn" id="mbar-queue-btn" type="button" title="再生キュー（次に流れる曲）" aria-label="再生キュー">
+        <button class="mbar-mode-btn mbar-queue-btn" id="mbar-queue-btn" type="button" data-tooltip="再生キュー（次に流れる曲）" data-tooltip-pos="top" aria-label="再生キュー">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
             <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
           </svg>
@@ -108,12 +113,12 @@ export function initMusicPlayer() {
           <button class="vol-btn" id="mbar-vol-btn" type="button" aria-label="音量">${icon('volume')}</button>
           <input class="vol-slider" id="mbar-vol-slider" type="range" min="0" max="100" value="100" aria-label="音量">
         </div>
-        <button class="mbar-expand-btn" id="mbar-expand" type="button" title="現在位置から動画ビューワーで見る" aria-label="現在位置から動画ビューワーで見る">
+        <button class="mbar-expand-btn" id="mbar-expand" type="button" data-tooltip="現在位置から動画ビューワーで見る" data-tooltip-pos="top" aria-label="現在位置から動画ビューワーで見る">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v12H4V6zm5.5 3.5 5 3-5 3v-6z"/></svg>
           <span>動画で見る</span>
         </button>
         <span class="mbar-queue-info" id="mbar-queue-info"></span>
-        <button class="mbar-close-btn" id="mbar-close" type="button" aria-label="閉じる">${icon('close')}</button>
+        <button class="mbar-close-btn" id="mbar-close" type="button" aria-label="閉じる" data-tooltip="閉じる" data-tooltip-pos="top">${icon('close')}</button>
       </div>
     </div>
     <div class="mbar-queue-popup" id="mbar-queue-popup" hidden></div>`;
@@ -126,7 +131,7 @@ export function initMusicPlayer() {
   $('#mbar-repeat').addEventListener('click', _toggleRepeat);
   $('#mbar-shuffle').addEventListener('click', (e) => {
     _shuffle = !_shuffle;
-    try { localStorage.setItem('kanaShuffle', _shuffle ? '1' : '0'); } catch (_) {}
+    try { localStorage.setItem(LS_SHUFFLE_KEY, _shuffle ? '1' : '0'); } catch (_) {}
     e.currentTarget.setAttribute('aria-pressed', _shuffle ? 'true' : 'false');
     e.currentTarget.classList.toggle('is-on', _shuffle);
   });
@@ -180,11 +185,11 @@ export function initMusicPlayer() {
     }
     const queue = _queue.slice();
     const idx = _qIdx;
-    if (window.__openMusicQueueInViewer?.(queue, idx, t)) return;
+    if (openMusicQueueInViewer(queue, idx, t)) return;
     releaseMusicPlayerVideo({ hideBar: true });
     // 歌枠由来のトラックは元の配信オブジェクトでストリームビューワーを開く
     const target = video._stream || { url: video.url, title: video.title, isMv: true };
-    window.__openStreamViewer?.(target, t);
+    openStreamViewer(target, t);
   };
   $('#mbar-expand').addEventListener('click', _openInViewer);
   $('#mbar-thumb-overlay').addEventListener('click', _openInViewer);
@@ -232,12 +237,12 @@ export function initMusicPlayer() {
 export function playMusicQueue(videos, startIdx = 0, options = {}) {
   if (!videos?.length) return;
   // バー再生を始めるので、表示中の配信ミニプレイヤーは閉じる（二重表示防止）
-  try { window.__closeStreamMiniPlayer?.(); } catch (_) {}
+  try { closeStreamMiniPlayer(); } catch (_) {}
   _queue = videos.slice();
   _qIdx  = Math.max(0, Math.min(startIdx, _queue.length - 1));
   if (options.shuffle != null) {
     _shuffle = !!options.shuffle;
-    try { localStorage.setItem('kanaShuffle', _shuffle ? '1' : '0'); } catch (_) {}
+    try { localStorage.setItem(LS_SHUFFLE_KEY, _shuffle ? '1' : '0'); } catch (_) {}
   }
   _loadTrack(_qIdx);
 }
@@ -469,12 +474,12 @@ function _updateBarInfo(video) {
   if (sub) {
     if (video.sub)                       sub.textContent = video.sub;
     else if (video.type === 'cover')     sub.textContent = video.originalArtist || 'カバー曲';
-    else if (video.type === 'office')    sub.textContent = 'Re:AcT';
+    else if (video.type === 'office')    sub.textContent = 'ルミステ';
     else if (video.type === 'character') sub.textContent = video.character || 'キャラソン';
-    else                                 sub.textContent = 'イズオリジナル';
+    else                                 sub.textContent = `${SITE.creatorName}オリジナル`;
   }
   if (badge) {
-    const labels = { original: 'オリジナル', office: 'Re:AcT', character: 'キャラ', cover: 'カバー', stream: '歌枠' };
+    const labels = { original: 'オリジナル', office: 'ルミステ', character: 'キャラ', cover: 'カバー', stream: '歌枠' };
     badge.textContent = labels[video.type] || 'オリジナル';
     badge.dataset.type = video.type;
   }
@@ -587,7 +592,7 @@ function _toggleRepeat() {
 
 function _toggleRepeatAll() {
   _repeatAll = !_repeatAll;
-  try { localStorage.setItem('kanaRepeatAll', _repeatAll ? '1' : '0'); } catch (_) {}
+  try { localStorage.setItem(LS_REPEAT_ALL_KEY, _repeatAll ? '1' : '0'); } catch (_) {}
   _syncModeButtons();
 }
 
@@ -617,7 +622,7 @@ function _syncModeButtons() {
 /* ── キューポップアップ ─────────────────────────────────────────────────── */
 
 function _mvBadgeLabel(type) {
-  const labels = { original: 'オリジナル', office: 'Re:AcT', character: 'キャラ', cover: 'カバー', stream: '歌枠' };
+  const labels = { original: 'オリジナル', office: 'ルミステ', character: 'キャラ', cover: 'カバー', stream: '歌枠' };
   return labels[type] || 'オリジナル';
 }
 
@@ -693,5 +698,12 @@ function _syncPlayButton() {
   } catch (_) {}
 }
 
-window.__takeOverMusicPlayerVideo = takeOverMusicPlayerVideo;
-window.__restoreMusicExternalPlayer = restoreExternalPlayer;
+// 音楽バー⇔ビューワーの引き継ぎ連携をブリッジ登録(window.__* 廃止)
+registerMusicBridge({
+  takeOverVideo: takeOverMusicPlayerVideo,
+  restoreExternalPlayer,
+  releaseVideo: releaseMusicPlayerVideo,
+  pause: pauseMusicPlayer,
+  playVideo: playMusicBarVideo,
+  adoptExternalPlayer,
+});

@@ -2,5 +2,3 @@ User-agent: *
 Allow: /
 Disallow: /admin.html
 Disallow: /api/
-
-Sitemap: https://your-site.example/sitemap.xml

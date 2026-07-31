@@ -1,0 +1,35 @@
+{
+  "name": "一色イズ 歌唱データベース",
+  "short_name": "イズDB",
+  "description": "一色イズさんの歌った曲リスト、ランキング、歌枠タイムライン",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0fbff",
+  "theme_color": "#4ab2dc",
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/site-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

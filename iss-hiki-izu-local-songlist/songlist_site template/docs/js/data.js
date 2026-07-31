@@ -265,6 +265,20 @@ async function fetchJson(url) {
   return res.json();
 }
 
+// lives.json（issiki固有のリアルライブ情報）を取得する。
+// 取得できない場合は空データにフォールバックする。
+async function loadLives() {
+  try {
+    const payload = await fetchJson(STATIC_URLS.lives);
+    return {
+      lives: Array.isArray(payload.lives) ? payload.lives : [],
+      liveStats: payload.stats || {},
+    };
+  } catch (_) {
+    return { lives: [], liveStats: {} };
+  }
+}
+
 function channelStatsFromMeta(meta, code) {
   const item = meta.channels?.[code] || {};
   return withGeneratedAt(item.stats || item, meta.generatedAt);
@@ -278,8 +292,9 @@ function combinedStatsFromMeta(meta) {
 async function loadStaticSplit(metaPayload = null, onSongsReady = null) {
   let meta = metaPayload;
 
-  // songs を先に取得して軽量タブを早期描画する。streams はその後に取得する。
+  // songs と streams を並行取得（streams が大きいので songs の方が先に届く）
   const songsPromise   = fetchJson(STATIC_URLS.songs);
+  const streamsPromise = fetchJson(STATIC_URLS.streams);
   const livesPromise   = loadLives();
 
   if (!meta) {
@@ -290,11 +305,31 @@ async function loadStaticSplit(metaPayload = null, onSongsReady = null) {
 
   // songs が届いた時点で部分データをコールバック通知（streams はまだ待機中）
   if (onSongsReady) {
-    const partial = buildPartialPayload(meta, songs);
+    const partialChannels = {};
+    for (const [code, channelSongs] of Object.entries(songs.channels || {})) {
+      const mapped = channelSongs.map(s => {
+        if (!Array.isArray(s.channels)) s.channels = [code];
+        return s;
+      });
+      partialChannels[code] = {
+        stats: channelStatsFromMeta(meta, code),
+        songs: mapped,
+        streams: [],
+        orphans: [],
+        artists: [],
+      };
+    }
+    const partial = hydratePayload({
+      channels: partialChannels,
+      combined: { stats: combinedStatsFromMeta(meta) },
+      generatedAt: meta.generatedAt || null,
+      dataGeneratedDate: parseGeneratedAt(meta.generatedAt),
+    });
+    partial.fullLoaded = false;
+    partial.partialLoaded = true;
     try { onSongsReady(partial); } catch (_) {}
   }
 
-  const streamsPromise = fetchJson(STATIC_URLS.streams);
   const streams = await streamsPromise;
 
   const channels = {};
@@ -326,45 +361,6 @@ async function loadStaticSplit(metaPayload = null, onSongsReady = null) {
     ...payload,
     ...(await livesPromise),
   };
-}
-
-function buildPartialPayload(meta, songs, liveData = null) {
-  const partialChannels = {};
-  for (const [code, channelSongs] of Object.entries(songs.channels || {})) {
-    const mapped = channelSongs.map(s => {
-      if (!Array.isArray(s.channels)) s.channels = [code];
-      return s;
-    });
-    partialChannels[code] = {
-      stats: channelStatsFromMeta(meta, code),
-      songs: mapped,
-      streams: [],
-      orphans: [],
-      artists: [],
-    };
-  }
-  const partial = hydratePayload({
-    channels: partialChannels,
-    combined: { stats: combinedStatsFromMeta(meta) },
-    generatedAt: meta.generatedAt || null,
-    dataGeneratedDate: parseGeneratedAt(meta.generatedAt),
-  });
-  partial.fullLoaded = false;
-  partial.partialLoaded = true;
-  if (liveData) Object.assign(partial, liveData);
-  return partial;
-}
-
-async function loadLives() {
-  try {
-    const payload = await fetchJson(STATIC_URLS.lives);
-    return {
-      lives: Array.isArray(payload.lives) ? payload.lives : [],
-      liveStats: payload.stats || {},
-    };
-  } catch (_) {
-    return { lives: [], liveStats: {} };
-  }
 }
 
 async function loadStaticMeta() {
@@ -414,23 +410,6 @@ async function loadFallbackApi() {
 export async function loadAll(options = {}) {
   try {
     return await loadStaticSplit(options.meta || null, options.onSongsReady || null);
-  } catch (staticError) {
-    try {
-      return await loadFallbackApi();
-    } catch (fallbackError) {
-      throw new Error(`APIからデータを取得できませんでした: ${staticError.message}; ${fallbackError.message}`);
-    }
-  }
-}
-
-export async function loadPartial(options = {}) {
-  try {
-    const meta = options.meta || await fetchJson(STATIC_URLS.meta);
-    const [songs, liveData] = await Promise.all([
-      fetchJson(STATIC_URLS.songs),
-      loadLives(),
-    ]);
-    return buildPartialPayload(meta, songs, liveData);
   } catch (staticError) {
     try {
       return await loadFallbackApi();

@@ -51,10 +51,19 @@ export function renderRanking() {
     ` : ''}
   `;
 
+  // スライドトラック初期位置
+  syncPeriodTrack(panel);
+
   // 期間ボタン
   panel.addEventListener('click', (e) => {
     const periodBtn = e.target.closest('[data-ranking-period]');
     if (!periodBtn) return;
+    // トラックをアニメーション
+    const track = periodBtn.closest('.period-tabs')?.querySelector('.period-tab-track');
+    if (track) {
+      track.style.left  = periodBtn.offsetLeft + 'px';
+      track.style.width = periodBtn.offsetWidth + 'px';
+    }
     const newPeriod = periodBtn.dataset.rankingPeriod;
     if (newPeriod !== period) {
       state.rankingPeriod = newPeriod;
@@ -123,14 +132,17 @@ function renderPeriodSelector(streams, currentPeriod, streamsLoaded) {
 
   return `
     <div class="ranking-period-selector">
-      ${periods.map(p => `
-        <button
-          class="period-btn${currentPeriod === p.key ? ' active' : ''}"
-          type="button"
-          data-ranking-period="${p.key}"
-          ${(!streamsLoaded && p.key !== 'all') ? 'disabled title="配信データ読み込み中"' : ''}
-        >${p.key === 'all' ? p.label : (streamsLoaded ? p.label : p.label + ' …')}</button>
-      `).join('')}
+      <div class="period-tabs" role="group" aria-label="表示期間">
+        <span class="period-tab-track" aria-hidden="true"></span>
+        ${periods.map(p => `
+          <button
+            class="period-btn${currentPeriod === p.key ? ' active' : ''}"
+            type="button"
+            data-ranking-period="${p.key}"
+            ${(!streamsLoaded && p.key !== 'all') ? 'disabled title="配信データ読み込み中"' : ''}
+          >${p.key === 'all' ? p.label : (streamsLoaded ? p.label : p.label + ' …')}</button>
+        `).join('')}
+      </div>
       ${months.length && streamsLoaded ? `
         <select id="ranking-month-select" class="select-input period-month-select" title="月を指定">
           <option value="">月を選択…</option>
@@ -156,6 +168,14 @@ function renderPeriodSelector(streams, currentPeriod, streamsLoaded) {
       ` : ''}
     </div>
   `;
+}
+
+function syncPeriodTrack(panel) {
+  const active = panel.querySelector('.period-tabs .period-btn.active');
+  const track  = panel.querySelector('.period-tab-track');
+  if (!active || !track) return;
+  track.style.left  = active.offsetLeft + 'px';
+  track.style.width = active.offsetWidth + 'px';
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

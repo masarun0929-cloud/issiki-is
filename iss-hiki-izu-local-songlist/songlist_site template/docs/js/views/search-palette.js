@@ -233,7 +233,7 @@ function _render(rawQuery) {
       html += _sectionLabel('calendar', '配信枠');
       for (const stream of matchedStreams) {
         _flat.push({ type: 'stream', stream });
-        const chLabel = stream.channel === 'new' ? '歌った曲リスト' : stream.channel === 'old' ? '別ch' : '';
+        const chLabel = '';
         html += `<div class="omni-item" role="option" aria-selected="false" data-omni-idx="${idx++}">
           <span class="omni-item-icon">${icon('calendar')}</span>
           <div class="omni-item-body">
@@ -317,7 +317,7 @@ function _musicSearchText(video) {
 function _musicTypeLabel(video) {
   switch (video?.type) {
     case 'cover': return '歌みた';
-    case 'office': return 'Re:AcTオリ曲';
+    case 'office': return 'ルミステオリ曲';
     case 'character': return 'キャラソン';
     default: return 'オリ曲';
   }

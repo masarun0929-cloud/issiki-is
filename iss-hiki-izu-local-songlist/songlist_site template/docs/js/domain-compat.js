@@ -16,10 +16,11 @@ export {
   buildMonthly, isoDate, heatLevel, buildHeatmap,
 } from '../../src/domain/analytics/dashboard.js';
 export {
-  inferStatsTags, inferGenreMoodTags, inferGenreTags, inferSeasonTags,
-  inferMoodTags, inferCompositeTags, inferCompoundTags, inferAllTags,
+  inferStatsTags, inferGenreMoodTags, inferSeasonTags,
+  inferMoodTags, inferCompositeTags, inferAllTags,
   singerTags, trendLabel,
 } from '../../src/domain/analytics/tagging.js';
+export { inferGenreMoodTags as inferGenreTags, inferCompositeTags as inferCompoundTags } from '../../src/domain/analytics/tagging.js';
 export {
   compareNumeric, applyFieldFilters, applyGenreFilter, applyTagFilter,
   applySingerMode, filterByTextIncludes, toTimestamp,

@@ -1,2 +1,11 @@
-/data/*.json
-  Cache-Control: public, max-age=60
+/*
+  X-Robots-Tag: index, follow
+
+/data/*
+  Cache-Control: no-cache
+
+/admin.html
+  X-Robots-Tag: noindex, nofollow
+
+/api/*
+  X-Robots-Tag: noindex, nofollow

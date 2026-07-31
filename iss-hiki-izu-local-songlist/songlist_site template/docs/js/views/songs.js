@@ -3,15 +3,23 @@ import { ensureSongsTags } from '../tagging.js';
 import { $, escapeHtml, fmtDate, daysClass, debounce, highlightText } from '../utils.js';
 import { search, matchReasons, getSearchHistory, addSearchHistory, removeSearchHistory, clearSearchHistory } from '../search.js';
 import { writeUrlState } from '../url-state.js';
-import { applyGenreFilter, applyTagFilter, applySingerMode, sortSongs, setlistBalance } from '../domain-compat.js';
+import { applyGenreFilter, applyTagFilter, applySingerMode, sortSongs } from '../domain-compat.js';
 import { icon } from '../icons.js';
+import {
+  initSetlistPlanner,
+  loadSetlist,
+  restoreSetlistFromUrl,
+  saveSetlist,
+  renderSetlistPlanner,
+  handleSetlistAction,
+  addCustomToSetlist,
+  toggleSetlistPlanner,
+  updateSetlistToggle,
+} from './songs/setlist-planner.js';
 
 let searchInputEl, sortSelectEl, genreSelectEl, filterButtonsEl, genreChipsEl, listEl, countEl, moreBtnWrap;
 let searchHistoryDropdown = null;
-const SETLIST_STORAGE_KEY = 'isshiki-izu-setlist-v1';
 let currentFiltered = [];
-let _setlistSearchClickOut = null;
-let _dragCleanup = null;
 
 // ── 無限スクロール（IntersectionObserver） ────────────────────────────────
 let _infiniteObserver = null;
@@ -41,8 +49,10 @@ function _setupInfinite(total) {
 }
 
 export function renderSongs() {
-  if (state.singerPreset === 'keyed') state.singerPreset = 'all';
   _disconnectInfinite(); // タブ再描画時にリーク防止
+  initSetlistPlanner({
+    getCandidatePool: () => (currentFiltered.length ? currentFiltered : (state.data?.songs || [])),
+  });
   loadSetlist();
   restoreSetlistFromUrl();
   ensureSongsTags(state.data?.songs || []);
@@ -58,11 +68,11 @@ export function renderSongs() {
     <div id="songs-filter-panel" class="mobile-panel mobile-panel-filters is-open">
       <div class="songs-search-shell">
         <div class="search-input-wrap">
-          <span class="songs-search-icon" aria-hidden="true">⌕</span>
+          <span class="songs-search-icon" aria-hidden="true">${icon('search')}</span>
           <input id="songs-search" class="text-input songs-search-input" type="search" placeholder="曲名・アーティスト・雰囲気で検索" value="${escapeHtml(state.songsQuery)}">
           <div id="search-history-dropdown" class="search-history-dropdown" hidden></div>
         </div>
-        <button class="songs-fav-toggle ${state.favoritesFilter ? 'is-active' : ''}" type="button" data-filter="favorites" aria-pressed="${state.favoritesFilter ? 'true' : 'false'}" title="お気に入りだけ表示">${icon('heart')}</button>
+        <button class="songs-fav-toggle ${state.favoritesFilter ? 'is-active' : ''}" type="button" data-filter="favorites" aria-pressed="${state.favoritesFilter ? 'true' : 'false'}" aria-label="お気に入りだけ表示" data-tooltip="お気に入りだけ表示">${icon('heart')}</button>
         ${state.singerMode ? '<button class="songs-setlist-mini btn primary" id="setlist-toggle-btn" type="button" aria-controls="setlist-planner" aria-expanded="' + (state.setlistExpanded ? 'true' : 'false') + '">' + (state.setlistExpanded ? 'セトリを閉じる' : 'セトリ制作') + '</button>' : ''}
       </div>
       <!-- 雰囲気サジェストチップ（常時表示・8種のみ） -->
@@ -105,6 +115,7 @@ export function renderSongs() {
       </div>
       ${state.singerMode ? `
         <div class="songs-tools">
+          <button class="btn ghost" data-singer-preset="keyed" type="button">キー確認済み</button>
           <button class="btn ghost" data-singer-preset="classic" type="button">定番</button>
           <button class="btn ghost" data-singer-preset="stale" type="button">久しぶり</button>
           <button class="btn ghost" data-singer-preset="rare" type="button">レア</button>
@@ -419,16 +430,6 @@ function toggleMobilePanel(panelName) {
   }
 }
 
-function toggleSetlistPlanner() {
-  if (!state.singerMode) return;
-  state.setlistExpanded = !state.setlistExpanded;
-  renderSetlistPlanner();
-  const wrap = $('#setlist-planner');
-  if (state.setlistExpanded) {
-    wrap?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
-
 function genreLabel(song) {
   return String(song.genre || '未分類').trim() || '未分類';
 }
@@ -573,6 +574,8 @@ function renderTodaysSongCard(song) {
   const lastHtml = song.lastSung
     ? `${fmtDate(song.lastSung)} · ${song.daysSinceLast}日前`
     : '履歴未確認';
+  const keyHtml = String(song.displayKey || '').split(',').map(k => k.trim()).filter(Boolean)
+    .map(k => `<span class="todays-song-key">キー ${escapeHtml(k)}</span>`).join('');
   const addButton = state.singerMode
     ? `<button class="btn primary" type="button" data-setlist-action="todays-song-add" data-songkey="${escapeHtml(song.key)}">${icon('plus')} セトリに追加</button>`
     : '';
@@ -588,6 +591,7 @@ function renderTodaysSongCard(song) {
         <div class="todays-song-meta">
           <span class="todays-song-count">${song.count}回</span>
           <span class="todays-song-last">${lastHtml}</span>
+          ${keyHtml}
         </div>
       </div>
       <div class="todays-song-actions">
@@ -606,7 +610,7 @@ function showRecommendation() {
       preset: state.singerPreset,
       keyPublished: state.data?.stats?.keyPublished,
     })
-      .filter(song => song.lastSung),
+      .filter(song => song.lastSung && (song.displayKey || !state.data.stats.keyPublished)),
     'oldest',
     false
   );
@@ -628,537 +632,11 @@ function showRecommendation() {
       <div class="recommend-meta">
         <span>${pick.count}回</span>
         <span>${pick.daysSinceLast ?? '—'}日前</span>
+        ${String(pick.displayKey || '').split(',').map(k => k.trim()).filter(Boolean).map(k => `<span>キー ${escapeHtml(k)}</span>`).join('')}
       </div>
       <button class="recommend-dismiss" type="button" data-recommend-dismiss aria-label="おすすめ選曲を閉じる">×</button>
     </div>
   `;
-}
-
-function loadSetlist() {
-  try {
-    const raw = localStorage.getItem(SETLIST_STORAGE_KEY);
-    if (!raw) return;
-    const saved = JSON.parse(raw);
-    state.setlist.theme = String(saved.theme || '');
-    state.setlist.copyFormat = saved.copyFormat === 'timestamp' ? 'timestamp' : 'simple';
-    state.setlist.items = Array.isArray(saved.items) ? saved.items : [];
-  } catch (_) {
-    state.setlist.items = [];
-  }
-}
-
-function generateSetlistShareUrl() {
-  const items = state.setlist.items;
-  if (!items.length) return window.location.href.split('?')[0];
-  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(items))));
-  const url = new URL(window.location.href.split('?')[0]);
-  url.searchParams.set('setlist', encoded);
-  return url.toString();
-}
-
-function restoreSetlistFromUrl() {
-  try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const setlistParam = urlParams.get('setlist');
-    if (!setlistParam) return;
-    const decoded = decodeURIComponent(escape(atob(setlistParam)));
-    const items = JSON.parse(decoded);
-    if (!Array.isArray(items) || !items.length) return;
-    const existingKeys = new Set(state.setlist.items.map(item => item.key));
-    const newItems = items.filter(item => !existingKeys.has(item.key));
-    if (newItems.length) {
-      state.setlist.items = [...state.setlist.items, ...newItems];
-      saveSetlist();
-    }
-  } catch (_) {
-    // Invalid setlist parameter, ignore
-  }
-}
-
-async function copySetlistShareUrl() {
-  const url = generateSetlistShareUrl();
-  if (!state.setlist.items.length) {
-    renderSetlistPlanner('共有する曲がありません');
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(url);
-    renderSetlistPlanner('共有URLをコピーしました');
-  } catch (_) {
-    renderSetlistPlanner('コピーに失敗しました');
-  }
-}
-
-function saveSetlist() {
-  localStorage.setItem(SETLIST_STORAGE_KEY, JSON.stringify(state.setlist));
-}
-
-function songByKey(key) {
-  return (state.data.songs || []).find(song => song.key === key) || null;
-}
-
-function addToSetlist(song) {
-  if (!song) return;
-  state.setlist.items.push({
-    key: song.key,
-    title: song.title,
-    artist: song.artist,
-    displayKey: song.displayKey || '',
-    genre: song.genre || '',
-    moodTags: song.moodTags || [],
-    seasonTags: song.seasonTags || [],
-    daysSinceLast: song.daysSinceLast,
-  });
-  saveSetlist();
-  renderSetlistPlanner('追加しました');
-}
-
-function addCustomToSetlist() {
-  const titleEl = $('#setlist-custom-title');
-  const artistEl = $('#setlist-custom-artist');
-  const title = String(titleEl?.value || '').trim();
-  const artist = String(artistEl?.value || '').trim();
-  if (!title) {
-    renderSetlistPlanner('曲名を入力してください');
-    return;
-  }
-  state.setlist.items.push({
-    key: `custom:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
-    custom: true,
-    title,
-    artist,
-    displayKey: '',
-    genre: '新規',
-    moodTags: [],
-    seasonTags: [],
-    daysSinceLast: null,
-  });
-  saveSetlist();
-  renderSetlistPlanner('新しい曲を追加しました');
-}
-
-function hydrateSetlistItem(item) {
-  if (item.custom) return item;
-  const song = songByKey(item.key);
-  return song ? { ...item, ...song } : item;
-}
-
-function handleSetlistAction(action) {
-  const act = action.dataset.setlistAction;
-  const index = Number(action.dataset.index);
-  if (act === 'add') addToSetlist(songByKey(action.dataset.songkey));
-  if (act === 'todays-song-add') addToSetlist(songByKey(action.dataset.songkey));
-  if (act === 'remove') state.setlist.items.splice(index, 1);
-  if (act === 'up' && index > 0) {
-    [state.setlist.items[index - 1], state.setlist.items[index]] = [state.setlist.items[index], state.setlist.items[index - 1]];
-  }
-  if (act === 'down' && index < state.setlist.items.length - 1) {
-    [state.setlist.items[index + 1], state.setlist.items[index]] = [state.setlist.items[index], state.setlist.items[index + 1]];
-  }
-  if (act === 'copy-item') {
-    copySetlistItem(index);
-    return;
-  }
-  if (act === 'add-custom') {
-    addCustomToSetlist();
-    return;
-  }
-  if (act === 'random') addRandomToSetlist();
-  if (act === 'copy') copySetlist();
-  if (act === 'share') {
-    copySetlistShareUrl();
-    return;
-  }
-  if (act === 'clear' && confirm('セトリを空にしますか？')) state.setlist.items = [];
-  saveSetlist();
-  if (!['add', 'random', 'copy'].includes(act)) renderSetlistPlanner();
-}
-
-function addRandomToSetlist() {
-  const existing = new Set(state.setlist.items.map(item => item.key));
-  const pool = (currentFiltered.length ? currentFiltered : state.data.songs)
-    .filter(song => song.key && !existing.has(song.key));
-  if (!pool.length) {
-    renderSetlistPlanner('追加できる候補がありません');
-    return;
-  }
-  const pick = pool[Math.floor(Math.random() * pool.length)];
-  addToSetlist(pick);
-}
-
-function setlistItems() {
-  return state.setlist.items.map(hydrateSetlistItem);
-}
-
-function renderSetlistPlanner(message = '') {
-  const wrap = $('#setlist-planner');
-  if (!wrap) return;
-  updateSetlistToggle();
-  wrap.hidden = !state.singerMode || !state.setlistExpanded;
-  wrap.classList.toggle('is-open', state.singerMode && state.setlistExpanded);
-  if (!state.singerMode) {
-    wrap.innerHTML = '';
-    return;
-  }
-  const items = setlistItems();
-  const balance = setlistBalance(items);
-  const minutes = items.length * 5;
-  wrap.innerHTML = `
-    <div class="setlist-head">
-      <div>
-        <div class="recommend-label">Setlist Builder</div>
-        <h3>今日のセトリ</h3>
-      </div>
-      <div class="setlist-total">${items.length}曲 / 約${minutes}分</div>
-    </div>
-    <input id="setlist-theme" class="text-input setlist-theme" type="text" placeholder="歌枠テーマメモ" value="${escapeHtml(state.setlist.theme)}">
-    <div class="setlist-search-add">
-      <div class="setlist-search-wrap">
-        <input id="setlist-search-input" class="text-input setlist-search-input"
-               type="text" placeholder="曲名を入力して追加…" autocomplete="off" spellcheck="false">
-        <div id="setlist-search-dropdown" class="setlist-search-dropdown" hidden></div>
-      </div>
-      <details class="setlist-custom-details">
-        <summary>検索で見つからない曲を追加する</summary>
-        <div class="setlist-custom-add">
-          <input id="setlist-custom-title" class="text-input" type="text"
-                 placeholder="曲名（例：シャルル）" autocomplete="off">
-          <div class="setlist-custom-row2">
-            <input id="setlist-custom-artist" class="text-input" type="text"
-                   placeholder="アーティスト名（任意）" autocomplete="off">
-            <button class="btn primary" type="button" data-setlist-action="add-custom">追加</button>
-          </div>
-        </div>
-      </details>
-    </div>
-    <div class="setlist-balance">
-      ${balanceChip('ジャンル', balance.genres)}
-      ${balanceChip('雰囲気', balance.moods)}
-      <span>久しぶり ${balance.stale}</span>
-    </div>
-    <div class="setlist-items">
-      ${items.length ? items.map((item, i) => setlistItemHtml(item, i)).join('') : '<div class="setlist-empty">曲の「セトリ」ボタンかランダム追加から作れます</div>'}
-    </div>
-    <div class="setlist-actions">
-      <select id="setlist-copy-format" class="select-input">
-        <option value="simple"${state.setlist.copyFormat === 'simple' ? ' selected' : ''}>曲名 / アーティスト</option>
-        <option value="timestamp"${state.setlist.copyFormat === 'timestamp' ? ' selected' : ''}>タイムスタンプ入力用</option>
-      </select>
-      <button class="btn ghost" type="button" data-setlist-action="random">ランダム追加</button>
-      <button class="btn primary" type="button" data-setlist-action="copy">コピー</button>
-      <button class="btn ghost" type="button" data-setlist-action="share">${icon('link')} 共有</button>
-      <button class="btn ghost" type="button" data-setlist-action="clear">クリア</button>
-      ${message ? `<span class="setlist-message">${escapeHtml(message)}</span>` : ''}
-    </div>
-  `;
-
-  initSetlistSearch();
-  initSetlistDrag();
-}
-
-function balanceChip(label, rows) {
-  if (!rows.length) return `<span>${label} —</span>`;
-  return `<span>${label} ${rows.map(([name, count]) => `${escapeHtml(name)} ${count}`).join(' / ')}</span>`;
-}
-
-function setlistItemHtml(item, index) {
-  return `
-    <div class="setlist-item" data-index="${index}">
-      <div class="setlist-no">${index + 1}</div>
-      <div class="setlist-drag-handle" title="ドラッグして並び替え" aria-label="ドラッグハンドル">⠿</div>
-      <div class="setlist-info">
-        <strong>${escapeHtml(item.title)}</strong>
-        <span>${item.artist ? escapeHtml(item.artist) : 'アーティスト未入力'}${item.custom ? ' · 新規' : ''}</span>
-      </div>
-      <div class="setlist-move">
-        <button class="setlist-copy-one" type="button" data-setlist-action="copy-item" data-index="${index}" aria-label="${escapeHtml(item.title)}をコピー">⧉</button>
-        <button type="button" data-setlist-action="up" data-index="${index}" aria-label="上へ">↑</button>
-        <button type="button" data-setlist-action="down" data-index="${index}" aria-label="下へ">↓</button>
-        <button type="button" data-setlist-action="remove" data-index="${index}" aria-label="削除">×</button>
-      </div>
-    </div>
-  `;
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// セトリ曲検索ドロップダウン
-// ──────────────────────────────────────────────────────────────────────────────
-
-function initSetlistSearch() {
-  const input = document.getElementById('setlist-search-input');
-  const dropdown = document.getElementById('setlist-search-dropdown');
-  if (!input || !dropdown) return;
-
-  let _matches = [];
-  let _selIdx = -1;
-
-  function _render(q) {
-    const ql = q.trim().toLowerCase();
-    if (!ql) { dropdown.hidden = true; _matches = []; _selIdx = -1; return; }
-
-    const songs = state.data?.songs || [];
-    const matched = songs
-      .filter(s => s.title.toLowerCase().includes(ql) || (s.artist || '').toLowerCase().includes(ql))
-      .sort((a, b) => {
-        const aT = a.title.toLowerCase().startsWith(ql) ? 2 : a.title.toLowerCase().includes(ql) ? 1 : 0;
-        const bT = b.title.toLowerCase().startsWith(ql) ? 2 : b.title.toLowerCase().includes(ql) ? 1 : 0;
-        if (aT !== bT) return bT - aT;
-        return b.count - a.count;
-      })
-      .slice(0, 8);
-
-    const newEntry = { _isNew: true, title: q.trim() };
-
-    if (!matched.length) {
-      dropdown.innerHTML = `
-        <div class="setlist-dd-item setlist-dd-new" data-dd-idx="0">
-          <span class="setlist-dd-plus">${icon('plus')}</span>
-          <div class="setlist-dd-body">
-            <div class="setlist-dd-title">「${escapeHtml(q.trim())}」を新規追加</div>
-            <div class="setlist-dd-meta">アーティスト名を入力して追加できます</div>
-          </div>
-        </div>`;
-      _matches = [newEntry];
-    } else {
-      dropdown.innerHTML =
-        matched.map((s, i) => `
-          <div class="setlist-dd-item" data-dd-idx="${i}">
-            <span class="setlist-dd-icon">${icon('music')}</span>
-            <div class="setlist-dd-body">
-              <div class="setlist-dd-title">${escapeHtml(s.title)}</div>
-              <div class="setlist-dd-meta">${escapeHtml(s.artist || '—')} · ${s.count}回</div>
-            </div>
-          </div>`).join('') +
-        `<div class="setlist-dd-item setlist-dd-new" data-dd-idx="${matched.length}">
-          <span class="setlist-dd-plus">${icon('plus')}</span>
-          <div class="setlist-dd-body">
-            <div class="setlist-dd-title">「${escapeHtml(q.trim())}」を新規追加</div>
-            <div class="setlist-dd-meta">曲リストにない曲として追加</div>
-          </div>
-        </div>`;
-      _matches = [...matched, newEntry];
-    }
-    _selIdx = -1;
-    dropdown.hidden = false;
-    _updateSel();
-  }
-
-  function _updateSel() {
-    dropdown.querySelectorAll('[data-dd-idx]').forEach((el, i) =>
-      el.classList.toggle('is-selected', i === _selIdx));
-  }
-
-  function _pick(idx) {
-    const m = _matches[idx];
-    if (!m) return;
-    dropdown.hidden = true;
-    _matches = []; _selIdx = -1;
-
-    if (m._isNew) {
-      // details を開いてタイトルを prefill、アーティスト欄にフォーカス
-      const details = document.querySelector('.setlist-custom-details');
-      const titleEl = document.getElementById('setlist-custom-title');
-      if (details && titleEl) {
-        details.open = true;
-        titleEl.value = m.title;
-        input.value = '';
-        document.getElementById('setlist-custom-artist')?.focus();
-      } else {
-        input.value = '';
-      }
-    } else {
-      input.value = '';
-      addToSetlist(m);
-    }
-  }
-
-  input.addEventListener('input', () => _render(input.value));
-
-  input.addEventListener('keydown', (e) => {
-    if (dropdown.hidden) return;
-    const len = _matches.length;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      _selIdx = (_selIdx + 1) % len;
-      _updateSel();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      _selIdx = (_selIdx - 1 + len) % len;
-      _updateSel();
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      _pick(_selIdx >= 0 ? _selIdx : 0);
-    } else if (e.key === 'Escape') {
-      dropdown.hidden = true;
-      _selIdx = -1;
-    }
-  });
-
-  dropdown.addEventListener('mousedown', (e) => {
-    const item = e.target.closest('[data-dd-idx]');
-    if (!item) return;
-    e.preventDefault(); // blur を防ぐ
-    _pick(Number(item.dataset.ddIdx));
-  });
-
-  // 外クリックで閉じる（再レンダー時に古いハンドラを解除）
-  if (_setlistSearchClickOut) document.removeEventListener('click', _setlistSearchClickOut);
-  _setlistSearchClickOut = (e) => {
-    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-      dropdown.hidden = true;
-      _selIdx = -1;
-    }
-  };
-  document.addEventListener('click', _setlistSearchClickOut);
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// セトリ ドラッグ＆ドロップ並び替え（Pointer Events API）
-// ──────────────────────────────────────────────────────────────────────────────
-
-// セトリの並び替え（マイリストと同じ transform 追従方式）。
-// ドラッグ中の行はポインタに追従し、他の行は CSS トランジションでシフト、
-// 確定時に配列を並び替えて保存・再描画する。
-function initSetlistDrag() {
-  if (_dragCleanup) { _dragCleanup(); _dragCleanup = null; }
-
-  const listEl = document.querySelector('.setlist-items');
-  if (!listEl) return;
-
-  let st = null;
-
-  const cleanup = () => {
-    if (!st) return;
-    st.rows.forEach(r => { r.style.transform = ''; });
-    st.row.classList.remove('is-dragging');
-    listEl.classList.remove('is-drag-active');
-    st.row.removeEventListener('pointermove', onMove);
-    st.row.removeEventListener('pointerup', onEnd);
-    st.row.removeEventListener('pointercancel', onCancel);
-    st = null;
-  };
-
-  function onMove(e) {
-    if (!st) return;
-    e.preventDefault();
-    const dy = e.clientY - st.startY;
-    if (!st.moved && Math.abs(dy) < 3) return; // 微小移動はクリック扱い
-    st.moved = true;
-    st.row.style.transform = `translateY(${dy}px)`;
-
-    const centerY = st.mids[st.startIdx] + dy;
-    let target = 0;
-    for (let i = 0; i < st.mids.length; i++) {
-      if (i === st.startIdx) continue;
-      if (centerY > st.mids[i]) target++;
-    }
-    if (target !== st.targetIdx) {
-      st.targetIdx = target;
-      st.rows.forEach((r, i) => {
-        if (i === st.startIdx) return;
-        let shift = 0;
-        if (st.startIdx < target && i > st.startIdx && i <= target) shift = -st.rowH;
-        else if (st.startIdx > target && i >= target && i < st.startIdx) shift = st.rowH;
-        r.style.transform = shift ? `translateY(${shift}px)` : '';
-      });
-    }
-  }
-
-  function onEnd() {
-    if (!st) return;
-    const { startIdx, targetIdx, moved } = st;
-    cleanup();
-    if (!moved || targetIdx === startIdx) return;
-    const items = state.setlist.items;
-    if (startIdx < items.length) {
-      const [moved2] = items.splice(startIdx, 1);
-      items.splice(targetIdx, 0, moved2);
-      saveSetlist();
-      renderSetlistPlanner();
-    }
-  }
-
-  function onCancel() { cleanup(); }
-
-  listEl.addEventListener('pointerdown', (e) => {
-    if (st) return;
-    if (e.button != null && e.button !== 0) return; // 左ボタンのみ
-    // タッチは縦スクロール優先でハンドル限定、マウス等は行のどこからでも開始
-    const fromHandle = !!e.target.closest('.setlist-drag-handle');
-    if (e.pointerType === 'touch' && !fromHandle) return;
-    // 操作ボタン・入力の上では開始しない
-    if (e.target.closest('button, a, input, select, textarea')) return;
-    const row = e.target.closest('.setlist-item');
-    if (!row) return;
-    e.preventDefault();
-
-    const rows = Array.from(listEl.querySelectorAll('.setlist-item'));
-    const startIdx = rows.indexOf(row);
-    if (startIdx < 0) return;
-    const mids = rows.map(r => { const rc = r.getBoundingClientRect(); return rc.top + rc.height / 2; });
-    const rect = row.getBoundingClientRect();
-
-    st = {
-      rows, mids, startIdx, targetIdx: startIdx,
-      startY: e.clientY,
-      rowH: rect.height + (parseFloat(getComputedStyle(listEl).rowGap || getComputedStyle(listEl).gap) || 0),
-      row, moved: false,
-    };
-    row.classList.add('is-dragging');
-    listEl.classList.add('is-drag-active');
-    try { row.setPointerCapture(e.pointerId); } catch (_) {}
-    row.addEventListener('pointermove', onMove, { passive: false });
-    row.addEventListener('pointerup', onEnd);
-    row.addEventListener('pointercancel', onCancel);
-  });
-
-  _dragCleanup = cleanup;
-}
-
-function formatSetlistText() {
-  const items = setlistItems();
-  const lines = [];
-  if (state.setlist.theme) lines.push(`# ${state.setlist.theme}`, '');
-  items.forEach((item) => {
-    lines.push(formatSetlistLine(item));
-  });
-  return lines.join('\n');
-}
-
-function formatSetlistLine(item) {
-  const title = String(item?.title || '').trim();
-  const artist = String(item?.artist || '').trim();
-  const body = artist ? `${title} / ${artist}` : title;
-  return state.setlist.copyFormat === 'timestamp' ? `00:00　${body}　00:00` : body;
-}
-
-async function copySetlist() {
-  const text = formatSetlistText();
-  if (!text.trim()) {
-    renderSetlistPlanner('コピーする曲がありません');
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(text);
-    renderSetlistPlanner('コピーしました');
-  } catch (_) {
-    renderSetlistPlanner('コピーに失敗しました');
-  }
-}
-
-async function copySetlistItem(index) {
-  const item = setlistItems()[index];
-  if (!item) {
-    renderSetlistPlanner('コピーする曲がありません');
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(formatSetlistLine(item));
-    renderSetlistPlanner('1曲コピーしました');
-  } catch (_) {
-    renderSetlistPlanner('コピーに失敗しました');
-  }
 }
 
 function rowHtml(song, tokens) {
@@ -1174,7 +652,7 @@ function rowHtml(song, tokens) {
     <div class="song-row" data-songkey="${escapeHtml(song.key)}" data-songtitle="${escapeHtml(song.title)}" data-songartist="${escapeHtml(song.artist)}" title="クリックで曲詳細を表示">
       <div class="rank ${rankClass}">${song.rank}</div>
       <div class="info">
-        <div class="title song-title-line"><span class="song-title-text">${titleHtml}</span><button class="fav-btn ${favActive ? 'is-active' : ''}" type="button" data-fav-toggle="${escapeHtml(song.key)}" aria-label="お気に入り" aria-pressed="${favActive ? 'true' : 'false'}" title="お気に入り">${icon('heart')}</button></div>
+        <div class="title song-title-line"><span class="song-title-text">${titleHtml}</span><button class="fav-btn ${favActive ? 'is-active' : ''}" type="button" data-fav-toggle="${escapeHtml(song.key)}" aria-label="お気に入り" aria-pressed="${favActive ? 'true' : 'false'}" data-tooltip="お気に入り">${icon('heart')}</button></div>
         <button class="artist artist-search-btn" type="button" data-artist-search="${escapeHtml(song.artist)}">${artistHtml}</button>
         <div class="song-meta-line">
           <span class="genre-badge">${escapeHtml(genreLabel(song))}</span>
@@ -1191,16 +669,6 @@ function rowHtml(song, tokens) {
   `;
 }
 
-function updateSetlistToggle() {
-  const btn = $('#setlist-toggle-btn');
-  if (!btn) return;
-  const items = state.setlist.items.length;
-  btn.setAttribute('aria-expanded', state.setlistExpanded ? 'true' : 'false');
-  btn.textContent = state.setlistExpanded
-    ? `セトリ制作を閉じる${items ? ` (${items})` : ''}`
-    : `セトリ制作を開く${items ? ` (${items})` : ''}`;
-}
-
 function tagBadges(song) {
   const tags = [
     ...(song.seasonTags || []).map(tag => ({ tag, type: 'season' })),
@@ -1215,5 +683,13 @@ function tagBadges(song) {
 function keyHtml(song) {
   if (!state.singerMode) return '';
   const addButton = `<button class="setlist-add-btn" type="button" data-setlist-action="add" data-songkey="${escapeHtml(song.key)}">${icon('plus')} セトリ</button>`;
-  return `<div class="song-key-line song-key-actions">${addButton}</div>`;
+  if (!state.data?.stats?.keyPublished) {
+    return `<div class="song-key-line song-key-actions">${addButton}</div>`;
+  }
+  const keys = String(song.displayKey || '').split(',').map(k => k.trim()).filter(Boolean);
+  if (!keys.length) {
+    return `<div class="song-key-line song-key-actions"><span class="song-key-empty">キー未登録</span>${addButton}</div>`;
+  }
+  const badges = keys.map(k => `<button type="button" class="song-key-badge" data-tooltip="配信で使われた参考キー"><span>キー</span><strong>${escapeHtml(k)}</strong></button>`).join('');
+  return `<div class="song-key-line song-key-actions">${badges}${addButton}</div>`;
 }

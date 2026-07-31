@@ -3,6 +3,10 @@ import { $, escapeHtml, fmtDate, fmtMonth, daysSince, youtubeThumb } from '../ut
 import { periodHits, countStreamsThisMonth, countSongsThisMonth, countNewSongsThisMonth, buildMonthly, buildHeatmap, heatLevel, isoDate } from '../domain-compat.js';
 import { getToday } from '../store.js';
 import { icon } from '../icons.js';
+import { openStreamViewer, playMyListInViewer } from '../player/stream-player.js';
+import { getWatchHistory, clearWatchHistory } from '../player/watch-history.js';
+import { chartCanvas, createChart, getColors } from '../charts.js';
+import { SITE } from '../config.js';
 
 export function renderDashboard() {
   const { songs, streams } = state.data;
@@ -56,33 +60,56 @@ export function renderDashboard() {
 
   panel.innerHTML = `
     <div class="dashboard-grid" id="dashboard-grid">
-      ${renderResumeSection()}
-      ${renderRecapCardShell()}
-      <div class="dashboard-main-stack">
-        <div class="dashboard-lead">
-          ${activityHtml}
-          ${top5Html}
+      <div class="dashboard-overview-grid">
+        ${activityHtml}
+        ${top5Html}
+        <div class="card dashboard-card dashboard-genre-card">
+          <div class="card-title">${icon('chart')} ジャンル分布 <span class="pill">楽曲数</span></div>
+          ${renderGenreChart(songs)}
+        </div>
+        <div class="card dashboard-card dashboard-heatmap-card">
+          <div class="card-title">${icon('calendar')} 配信ヒートマップ <span class="pill">直近1年</span></div>
+          ${renderHeatmap(heatmap)}
         </div>
         <div class="card dashboard-card dashboard-monthly-card">
           <div class="card-title">${icon('music')} 月別 歌唱数 <span class="pill">直近12か月</span></div>
-          ${renderMonthlyBars(monthly, monthlyMax)}
+          ${monthly.length ? chartCanvas('chart-monthly', { class: 'short' }) : '<div class="empty-state">月別データなし</div>'}
         </div>
       </div>
-      <div class="card dashboard-card dashboard-side-card">
-        <section class="dashboard-side-section">
-          <div class="card-title">${icon('chart')} ジャンル分布 <span class="pill">楽曲数</span></div>
-          ${renderGenreChart(songs)}
-        </section>
-        <section class="dashboard-side-section">
-          <div class="card-title">${icon('calendar')} 配信ヒートマップ <span class="pill">直近1年</span></div>
-          ${renderHeatmap(heatmap)}
-        </section>
-      </div>
+      ${renderResumeSection()}
+      ${renderRecapCardShell()}
       ${deferredDashboardHtml(streams, songs, recent)}
     </div>
   `;
   bindResumeSection();
   bindRecapCard(streams, songs);
+  bindHitsToggle();
+  drawMonthlyChart(monthly);
+
+  // ヒートマップは直近1年を横に並べるため、初期表示で最新（右端）へ
+  const heatmapWrap = panel.querySelector('.heatmap-wrap');
+  if (heatmapWrap) heatmapWrap.scrollLeft = heatmapWrap.scrollWidth;
+}
+
+/* ── よく歌われた曲（今月/今年 切替） ──────────────────────────────────── */
+
+function bindHitsToggle() {
+  const toggle = $('#dashboard-hits-toggle');
+  const card = toggle?.closest('.dashboard-list-card');
+  if (!toggle || !card) return;
+  toggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-hits-period]');
+    if (!btn) return;
+    const period = btn.dataset.hitsPeriod;
+    card.querySelectorAll('[data-hits-list]').forEach(list => {
+      list.hidden = list.dataset.hitsList !== period;
+    });
+    toggle.querySelectorAll('[data-hits-period]').forEach(b => {
+      const active = b.dataset.hitsPeriod === period;
+      b.classList.toggle('primary', active);
+      b.classList.toggle('ghost', !active);
+    });
+  });
 }
 
 /* ── まとめカード（年間/月間リキャップ） ────────────────────────────────── */
@@ -92,7 +119,7 @@ function renderRecapCardShell() {
   return `
     <div class="card dashboard-card dashboard-recap-card" id="dashboard-recap-card">
       <div class="card-title">
-        ${icon('chart')} イズのまとめ
+        ${icon('chart')} ${escapeHtml(SITE.creatorName)}のまとめ
         <span class="dashboard-recap-toggle" id="dashboard-recap-toggle">
           <button class="btn ghost" type="button" data-recap-period="year" id="recap-btn-year">今年</button>
           <button class="btn ghost" type="button" data-recap-period="month" id="recap-btn-month">今月</button>
@@ -161,7 +188,7 @@ function computeRecap(streams, songs, period, today) {
   return { streamCount, totalSongs, distinctCount, topSong, topCount, newSongCount };
 }
 
-function recapBodyHtml(recap, periodLabel) {
+function recapBodyHtml(recap, periodLabel, periodShort) {
   if (!recap) {
     return `<div class="empty-state">この期間の記録はまだありません</div>`;
   }
@@ -173,19 +200,19 @@ function recapBodyHtml(recap, periodLabel) {
     <div class="recap-tiles">
       <div class="recap-tile">
         <strong>${recap.streamCount}</strong>
-        <span>歌枠数</span>
+        <span>${escapeHtml(periodShort)}の歌枠数</span>
       </div>
       <div class="recap-tile">
         <strong>${recap.totalSongs}</strong>
-        <span>総歌唱数</span>
+        <span>${escapeHtml(periodShort)}の歌唱数</span>
       </div>
       <div class="recap-tile">
         <strong>${recap.distinctCount}</strong>
-        <span>曲の種類</span>
+        <span>歌った曲の種類</span>
       </div>
       <div class="recap-tile">
         <strong>${recap.newSongCount}</strong>
-        <span>初披露曲</span>
+        <span>${escapeHtml(periodShort)}の初披露曲</span>
       </div>
     </div>
     <div class="recap-top-song">
@@ -210,7 +237,7 @@ function bindRecapCard(streams, songs) {
     const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
     const label = period === 'year' ? `${y}年` : `${y}年 ${monthNames[m]}`;
     const recap = computeRecap(streams, songs, period, today);
-    body.innerHTML = recapBodyHtml(recap, label);
+    body.innerHTML = recapBodyHtml(recap, label, period === 'year' ? '今年' : '今月');
     // ボタンの active 切替
     yearBtn?.classList.toggle('primary', period === 'year');
     yearBtn?.classList.toggle('ghost', period !== 'year');
@@ -234,11 +261,7 @@ function bindRecapCard(streams, songs) {
 
 /* ── 続きから見る（視聴履歴） ──────────────────────────────────────────── */
 
-const WATCH_HISTORY_KEY = 'isshiki-izu-watch-history-v1';
-
-function _watchHistory() {
-  try { return JSON.parse(localStorage.getItem(WATCH_HISTORY_KEY) || '[]'); } catch (_) { return []; }
-}
+// 視聴履歴の永続化は player/watch-history.js が唯一の所有者
 
 function _fmtPos(sec) {
   const s = Math.max(0, Math.floor(sec));
@@ -247,7 +270,7 @@ function _fmtPos(sec) {
 }
 
 function renderResumeSection() {
-  const entries = _watchHistory().slice(0, 6);
+  const entries = getWatchHistory().slice(0, 6);
   if (!entries.length) return '';
   return `
     <div class="card dashboard-card dashboard-resume-card">
@@ -264,7 +287,7 @@ function renderResumeSection() {
           const ago = days <= 0 ? '今日' : `${days}日前`;
           return `
           <button class="dashboard-resume-item" type="button" data-resume-idx="${i}" title="${escapeHtml(e.title || '')}">
-            ${thumb ? `<img class="dashboard-resume-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<div class="dashboard-resume-thumb"></div>'}
+            ${thumb ? `<img class="dashboard-resume-thumb" src="${escapeHtml(thumb)}" alt="" width="320" height="180" loading="lazy" referrerpolicy="no-referrer">` : '<div class="dashboard-resume-thumb"></div>'}
             <span class="dashboard-resume-title">${escapeHtml(e.title || '動画')}</span>
             <span class="dashboard-resume-meta">${icon('time')} ${_fmtPos(e.t)} から ・ ${ago}</span>
           </button>`;
@@ -280,27 +303,27 @@ function bindResumeSection() {
     list.onclick = (e) => {
       const btn = e.target.closest('[data-resume-idx]');
       if (!btn) return;
-      const entry = _watchHistory()[Number(btn.dataset.resumeIdx)];
+      const entry = getWatchHistory()[Number(btn.dataset.resumeIdx)];
       if (!entry?.url) return;
       let target = null;
       if (entry.channel != null && entry.index != null) {
         const all = state.channelData?.combined?.streams || state.data?.streams || [];
         target = all.find(s => s.channel === entry.channel && s.index === entry.index) || null;
       }
-      window.__openStreamViewer?.(target || { url: entry.url, title: entry.title, isMv: !!entry.isMv }, entry.t);
+      openStreamViewer(target || { url: entry.url, title: entry.title, isMv: !!entry.isMv }, entry.t);
     };
   }
   const clear = $('#dashboard-resume-clear');
   if (clear) {
     clear.onclick = () => {
-      try { localStorage.removeItem(WATCH_HISTORY_KEY); } catch (_) {}
+      clearWatchHistory();
       $('#panel-dashboard .dashboard-resume-card')?.remove();
     };
   }
   const queueBtn = $('#dashboard-resume-queue');
   if (queueBtn) {
     queueBtn.onclick = () => {
-      const entries = _watchHistory();
+      const entries = getWatchHistory();
       const streams = state.channelData?.combined?.streams || state.data?.streams || [];
       const items = entries.map((entry, i) => {
         const stream = entry.channel != null && entry.index != null
@@ -311,7 +334,7 @@ function bindResumeSection() {
         return null;
       }).filter(Boolean);
       if (!items.length) return;
-      window.__playMyListInViewer?.({ name: '視聴履歴', items, idx: 0 });
+      playMyListInViewer({ name: '視聴履歴', items, idx: 0 });
     };
   }
 }
@@ -322,31 +345,32 @@ function deferredDashboardHtml(streams, songs, recent) {
   const monthlyHits = periodHits(streams, 'month', getToday());
   const yearlyHits = periodHits(streams, 'year', getToday());
   return `
-    <div class="card dashboard-card dashboard-list-card dashboard-list-month">
-      <div class="card-title">${icon('rank')} 今月のよく歌われた曲 <span class="pill">軽量版</span></div>
-      <div class="bar-list">
+    <div class="card dashboard-card dashboard-list-card dashboard-list-hits">
+      <div class="card-title">${icon('rank')} よく歌われた曲
+        <span class="dashboard-recap-toggle" id="dashboard-hits-toggle">
+          <button class="btn primary" type="button" data-hits-period="month">今月</button>
+          <button class="btn ghost" type="button" data-hits-period="year">今年</button>
+        </span>
+      </div>
+      <div class="bar-list" data-hits-list="month">
         ${monthlyHits.length ? monthlyHits.slice(0, 5).map((s, i) => topBarRow(s, i, monthlyHits[0].count)).join('') : '<div class="empty-state">今月の歌唱履歴なし</div>'}
       </div>
-    </div>
-
-    <div class="card dashboard-card dashboard-list-card dashboard-list-year">
-      <div class="card-title">${icon('rank')} 今年のよく歌われた曲 <span class="pill">軽量版</span></div>
-      <div class="bar-list">
+      <div class="bar-list" data-hits-list="year" hidden>
         ${yearlyHits.length ? yearlyHits.slice(0, 5).map((s, i) => topBarRow(s, i, yearlyHits[0].count)).join('') : '<div class="empty-state">今年の歌唱履歴なし</div>'}
       </div>
     </div>
 
     <div class="card dashboard-card dashboard-list-card dashboard-list-stale">
-      <div class="card-title">${icon('time')} 久しぶり候補 <span class="pill">180日以上</span></div>
+      <div class="card-title">${icon('time')} 久しぶりの曲 <span class="pill">180日以上歌唱なし</span></div>
       <div class="bar-list">
-        ${stalePicks.length ? stalePicks.map((s, i) => topBarRow(s, i, stalePicks[0].count)).join('') : '<div class="empty-state">候補なし</div>'}
+        ${stalePicks.length ? stalePicks.map((s, i) => topBarRow(s, i, stalePicks[0].count)).join('') : '<div class="empty-state">該当なし</div>'}
       </div>
     </div>
 
     <div class="card dashboard-card dashboard-list-card dashboard-list-recent">
       <div class="card-title">${icon('sparkle')} 最近歌った定番 <span class="pill">30日以内</span></div>
       <div class="bar-list">
-        ${recentPicks.length ? recentPicks.map((s, i) => topBarRow(s, i, recentPicks[0].count)).join('') : '<div class="empty-state">候補なし</div>'}
+        ${recentPicks.length ? recentPicks.map((s, i) => topBarRow(s, i, recentPicks[0].count)).join('') : '<div class="empty-state">該当なし</div>'}
       </div>
     </div>
 
@@ -366,7 +390,7 @@ function deferredDashboardHtml(streams, songs, recent) {
 function topBarRow(s, i, max) {
   const pct = Math.round((s.count / max) * 100);
   return `
-    <div class="bar-row clickable" data-songkey="${escapeHtml(s.key)}" data-songtitle="${escapeHtml(s.title)}" data-songartist="${escapeHtml(s.artist)}" title="クリックで配信タイムラインに絞り込み">
+    <div class="bar-row clickable" role="button" tabindex="0" data-songkey="${escapeHtml(s.key)}" data-songtitle="${escapeHtml(s.title)}" data-songartist="${escapeHtml(s.artist)}">
       <div class="bar-rank">${i + 1}</div>
       <div class="bar-content">
         <div class="bar-label">${escapeHtml(s.title)} <span style="color:var(--ink-mute);font-size:11px;">/ ${escapeHtml(s.artist)}</span></div>
@@ -387,6 +411,10 @@ function renderGenreChart(songs) {
   const rows = Array.from(genreCounts.entries()).sort((a, b) => b[1] - a[1]);
   const total = rows.reduce((sum, [, count]) => sum + count, 0);
   if (!rows.length) return '<div class="empty-state">ジャンルデータなし</div>';
+  const totalSongs = songs.length || 0;
+  const unclassified = Math.max(0, totalSongs - total);
+  const topGenre = rows[0];
+  const topShare = totalSongs ? Math.round((topGenre[1] / totalSongs) * 100) : 0;
   return `
     <div class="genre-meter" aria-label="ジャンル分布">
       <div class="genre-meter-track">
@@ -403,26 +431,80 @@ function renderGenreChart(songs) {
           </div>
         `).join('')}
       </div>
+      <div class="genre-insights" aria-label="ジャンル集計">
+        <div class="genre-insight">
+          <span>分類済み</span>
+          <strong>${total}<small>曲</small></strong>
+        </div>
+        <div class="genre-insight">
+          <span>未分類</span>
+          <strong>${unclassified}<small>曲</small></strong>
+        </div>
+        <div class="genre-insight">
+          <span>ジャンル数</span>
+          <strong>${rows.length}<small>種</small></strong>
+        </div>
+        <div class="genre-insight">
+          <span>${escapeHtml(topGenre[0])}</span>
+          <strong>${topShare}<small>%</small></strong>
+        </div>
+      </div>
     </div>
   `;
 }
 
-function renderMonthlyBars(monthly, max) {
-  if (!monthly.length) return '<div class="empty-state">月別データなし</div>';
-  return `
-    <div class="monthly-bars" aria-label="月別歌唱数">
-      ${monthly.map((m) => {
-        const pct = Math.max(5, Math.round((m.songs / max) * 100));
-        return `
-          <div class="month-bar" title="${fmtMonth(m.date)}: ${m.songs}曲 / ${m.streams}枠">
-            <div class="month-bar-track"><span style="height:${pct}%"></span></div>
-            <div class="month-label">${fmtMonth(m.date).replace(/^\d{4}\//, '')}</div>
-            <strong>${m.songs}</strong>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
+function drawMonthlyChart(monthly) {
+  if (!monthly.length) return;
+  const labels = monthly.map(m => fmtMonth(m.date).replace(/^\d{4}\//, ''));
+  const c = getColors();
+  createChart('chart-monthly', 'line', {
+    labels,
+    datasets: [
+      {
+        label: '歌唱数',
+        data: monthly.map(m => m.songs),
+        borderColor: c.primaryStrong,
+        backgroundColor: c.primary + '30',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+      },
+      {
+        label: '歌枠数',
+        data: monthly.map(m => m.streams),
+        borderColor: c.accent,
+        backgroundColor: 'transparent',
+        tension: 0.4,
+        fill: false,
+        pointRadius: 2,
+        pointHoverRadius: 4,
+        borderWidth: 1.5,
+        borderDash: [4, 3],
+        yAxisID: 'y2',
+      },
+    ],
+  }, {
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        align: 'end',
+        labels: { boxWidth: 10, padding: 10, font: { size: 10 } },
+      },
+    },
+    scales: {
+      y: { beginAtZero: true },
+      // 歌枠数(1桁台)は歌唱数(3桁)と桁が違い左軸では潰れるため右軸に分離
+      y2: {
+        position: 'right',
+        beginAtZero: true,
+        grid: { drawOnChartArea: false },
+        ticks: { color: c.accentStrong, font: { size: 10 }, precision: 0 },
+      },
+    },
+  });
 }
 
 function renderHeatmap(cells) {

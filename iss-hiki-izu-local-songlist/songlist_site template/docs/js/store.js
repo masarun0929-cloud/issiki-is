@@ -14,14 +14,16 @@
 
 // ─── URL直列化可能な状態 (SSoT = URL) ────────────────────────────────────────
 
-const VALID_TABS = new Set(['dashboard', 'ranking', 'songs', 'timeline', 'lives', 'analytics', 'playlists']);
-const FAVORITES_KEY = 'isshiki-izu-favorites-v1';
+import { SITE } from './config.js';
+
+const VALID_TABS = new Set(['dashboard', 'ranking', 'songs', 'timeline', 'lives', 'analytics', 'requests', 'playlists']);
+const FAVORITES_KEY = `${SITE.storagePrefix}-favorites-v1`;
 const VALID_CHANNELS = new Set(['new', 'old', 'all']);
 const VIDEO_ID_RE = /^[\w-]{11}$/;
 
 /**
  * @typedef {object} UrlState
- * @property {'dashboard'|'ranking'|'songs'|'timeline'|'analytics'} tab
+ * @property {'dashboard'|'ranking'|'songs'|'timeline'|'lives'|'analytics'} tab
  * @property {'new'|'old'|'all'} channel
  * @property {string} q
  */

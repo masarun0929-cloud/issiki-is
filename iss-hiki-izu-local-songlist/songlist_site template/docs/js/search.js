@@ -1,7 +1,8 @@
 import { parseQuery, matchReasons, applyFieldFilters, filterByTextIncludes } from './domain-compat.js';
 import { ensureSongsTags } from './tagging.js';
+import { SITE } from './config.js';
 
-const SEARCH_HISTORY_KEY = 'isshiki-izu-search-history-v1';
+const SEARCH_HISTORY_KEY = `${SITE.storagePrefix}-search-history-v1`;
 const MAX_HISTORY = 10;
 
 export function getSearchHistory() {
@@ -40,6 +41,7 @@ const fuseOptions = {
     { name: 'tagText', weight: 0.14 },
     { name: 'moodText', weight: 0.12 },
     { name: 'seasonText', weight: 0.1 },
+    { name: 'keyText', weight: 0.1 },
     { name: 'moodTagText', weight: 0.1 },
     { name: 'singerTagText', weight: 0.08 },
   ],

@@ -17,16 +17,17 @@
 import { cleanMetadata } from '../shared/text.js';
 
 /**
- * @typedef {'オリジナル'|'ディズニー'|'童謡・唱歌'|'K-POP'|'アイドル'|'ボカロ'|'ゲーム・キャラソン'|'アニソン'|'J-POP'|'未分類'} Genre
+ * @typedef {'オリジナル'|'ディズニー'|'ミュージカル'|'童謡・唱歌'|'K-POP'|'アイドル'|'ボカロ'|'ゲーム・キャラソン'|'アニソン'|'J-POP'|'未分類'} Genre
  */
 
 /**
- * 全ジャンルの固定リスト (10 値)。
+ * 全ジャンルの固定リスト (11 値)。
  * @type {Readonly<Genre[]>}
  */
 export const GENRE_LIST = Object.freeze([
   'オリジナル',
   'ディズニー',
+  'ミュージカル',
   '童謡・唱歌',
   'K-POP',
   'アイドル',

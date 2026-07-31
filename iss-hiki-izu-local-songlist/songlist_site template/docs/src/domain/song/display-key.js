@@ -70,3 +70,32 @@ export function isValidDisplayKey(value) {
   if (typeof value !== 'string') return false;
   return parseDisplayKey(value) === value;
 }
+
+/**
+ * カンマ区切りの複数 DisplayKey 文字列をパースして配列で返す。
+ * 無効な値は除去される。
+ *
+ * 例: '原キー,+2' → ['原キー', '+2']
+ *
+ * @param {unknown} raw - カンマ区切りの DisplayKey 文字列。
+ * @returns {DisplayKey[]} 有効な DisplayKey の配列。
+ */
+export function parseDisplayKeys(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return /** @type {DisplayKey[]} */ ([]);
+  return /** @type {DisplayKey[]} */ (
+    text.split(',')
+      .map((k) => parseDisplayKey(k.trim()))
+      .filter((k) => k !== '')
+  );
+}
+
+/**
+ * DisplayKey 配列をカンマ区切り文字列にフォーマットする。
+ *
+ * @param {DisplayKey[]} keys - DisplayKey の配列。
+ * @returns {string} カンマ区切りの文字列。空配列は '' を返す。
+ */
+export function formatDisplayKeys(keys) {
+  return keys.filter(isValidDisplayKey).join(',');
+}
