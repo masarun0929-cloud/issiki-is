@@ -143,6 +143,101 @@ function renderSongMeta(rows) {
   `;
 }
 
+const REQUEST_STATUS_LABELS = {
+  unregistered: '未確認',
+  practicing: '練習中',
+  singable: '歌える',
+  sung: '歌唱済み',
+  rejected: '対象外',
+};
+
+function renderRequestStatusSelect(value) {
+  return `
+    <select data-field="status" class="admin-compact-input">
+      ${Object.entries(REQUEST_STATUS_LABELS).map(([key, label]) => (
+        `<option value="${key}" ${key === value ? 'selected' : ''}>${label}</option>`
+      )).join('')}
+    </select>
+  `;
+}
+
+function renderRequestAdmin(items) {
+  const box = $('#request-admin-box');
+  if (!box) return;
+  if (!items.length) {
+    box.innerHTML = '<p class="admin-note">該当するリクエストはありません</p>';
+    return;
+  }
+  box.innerHTML = `
+    <div class="admin-table-wrap">
+      <table class="admin-table request-admin-table">
+        <thead>
+          <tr>
+            <th>曲</th>
+            <th>歌手</th>
+            <th>状態</th>
+            <th>票</th>
+            <th>送信者</th>
+            <th>日付</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map((item) => `
+            <tr data-request-id="${item.id}">
+              <td>
+                <strong>${escapeHtml(item.title)}</strong>
+                ${item.url ? `<br><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">リンクを開く</a>` : ''}
+              </td>
+              <td>${escapeHtml(item.artist || '—')}</td>
+              <td>${renderRequestStatusSelect(item.status || 'unregistered')}</td>
+              <td><input class="admin-compact-input request-votes-input" data-field="voteCount" type="number" min="0" value="${Number(item.voteCount || 0)}"></td>
+              <td>${escapeHtml(item.requesterName || '—')}</td>
+              <td>${item.createdAt ? fmtDate(item.createdAt) : '—'}</td>
+              <td>
+                <button class="btn ghost" type="button" data-save-request>保存</button>
+                <button class="btn ghost" type="button" data-delete-request>削除</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderRequestSummary(summary, count) {
+  const badge = $('#request-count');
+  if (badge) badge.textContent = `${count}件`;
+  const total = Object.values(summary || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  const status = $('#request-status');
+  if (status) {
+    status.textContent = total
+      ? `全体: ${total}件 / 未確認: ${summary.unregistered || 0}件 / 歌える: ${summary.singable || 0}件 / 歌唱済み: ${summary.sung || 0}件`
+      : 'リクエストはまだありません';
+  }
+}
+
+async function loadSongRequests() {
+  const box = $('#request-admin-box');
+  if (!box) return;
+  $('#request-status').textContent = '読み込み中...';
+  box.innerHTML = '<p class="admin-note">読み込み中...</p>';
+  try {
+    const params = new URLSearchParams({
+      status: $('#request-status-filter')?.value || 'all',
+      q: $('#request-query')?.value || '',
+      limit: '200',
+    });
+    const data = await adminApi(`song-requests?${params.toString()}`);
+    renderRequestAdmin(data.items || []);
+    renderRequestSummary(data.summary || {}, (data.items || []).length);
+  } catch (error) {
+    $('#request-status').textContent = `エラー: ${error.message || String(error)}`;
+    box.innerHTML = '';
+  }
+}
+
 function renderSync(data, elapsed) {
   const stats = data.combined?.stats || {};
   const update = parseDate(stats.updateDate);
@@ -396,6 +491,47 @@ function initManagement() {
     }
   });
 
+  $('#load-requests')?.addEventListener('click', loadSongRequests);
+  $('#request-status-filter')?.addEventListener('change', loadSongRequests);
+  $('#request-query')?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') loadSongRequests();
+  });
+  $('#request-admin-box')?.addEventListener('click', async (event) => {
+    const saveBtn = event.target.closest('[data-save-request]');
+    const deleteBtn = event.target.closest('[data-delete-request]');
+    if (!saveBtn && !deleteBtn) return;
+    const row = event.target.closest('[data-request-id]');
+    const id = row?.dataset.requestId;
+    if (!id) return;
+
+    if (deleteBtn) {
+      const title = row.querySelector('strong')?.textContent || 'このリクエスト';
+      if (!confirm(`「${title}」を削除します。よろしいですか？`)) return;
+      $('#request-status').textContent = '削除中...';
+      try {
+        await adminApi(`song-requests/${id}/delete`, {});
+        $('#request-status').textContent = '削除しました。';
+        await loadSongRequests();
+      } catch (error) {
+        $('#request-status').textContent = `エラー: ${error.message || String(error)}`;
+      }
+      return;
+    }
+
+    $('#request-status').textContent = '保存中...';
+    try {
+      await adminApi(`song-requests/${id}`, {
+        status: row.querySelector('[data-field="status"]').value,
+        voteCount: row.querySelector('[data-field="voteCount"]').value,
+      });
+      $('#request-status').textContent = '保存しました。';
+      await loadSongRequests();
+    } catch (error) {
+      $('#request-status').textContent = `エラー: ${error.message || String(error)}`;
+    }
+  });
+  loadSongRequests();
+
   $('#generate-static-data')?.addEventListener('click', async () => {
     if (!confirm('GitHub Actionsで静的データ生成を開始します。よろしいですか？')) return;
     $('#static-status').textContent = 'GitHub Actionsを起動中...';
@@ -499,6 +635,7 @@ async function loadTimestamps() {
 }
 
 async function initTimestamps() {
+  if (!$('#ts-table-wrap')) return;
   // 配信・曲名参照用にデータをキャッシュ
   try { _tsData = await loadAll(); } catch (_) {}
 
@@ -755,6 +892,7 @@ async function _loadStreamForEdit(streamId) {
 
 function initStreamEdit() {
   const editChannel = $('#edit-channel');
+  if (!editChannel) return;
   const channels = Object.values(CHANNELS);
   editChannel.innerHTML = channels.map((ch) =>
     `<option value="${escapeHtml(ch.id)}">${escapeHtml(ch.label)}</option>`

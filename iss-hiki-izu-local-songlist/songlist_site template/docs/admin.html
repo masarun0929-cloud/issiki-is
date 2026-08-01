@@ -101,6 +101,29 @@
 
   <section class="admin-panel">
     <div class="section-header">
+      <h2>曲リクエスト管理</h2>
+      <span class="badge" id="request-count">確認中</span>
+    </div>
+    <div class="admin-form-grid">
+      <label>状態<select id="request-status-filter">
+        <option value="all">すべて</option>
+        <option value="unregistered">未確認</option>
+        <option value="practicing">練習中</option>
+        <option value="singable">歌える</option>
+        <option value="sung">歌唱済み</option>
+        <option value="rejected">対象外</option>
+      </select></label>
+      <label>検索<input id="request-query" type="search" placeholder="曲名 / 歌手 / お名前 / URL"></label>
+    </div>
+    <div class="admin-actions">
+      <button class="btn ghost" id="load-requests" type="button">読み込み</button>
+    </div>
+    <p class="admin-note" id="request-status"></p>
+    <div id="request-admin-box"></div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="section-header">
       <h2>静的データ生成</h2>
       <span class="badge" id="static-badge">GitHub Actions</span>
     </div>

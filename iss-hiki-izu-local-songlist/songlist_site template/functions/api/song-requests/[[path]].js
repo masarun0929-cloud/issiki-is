@@ -127,6 +127,32 @@ async function voteRequest(env, id) {
   return { ok: true, item: toItem(row) };
 }
 
+async function unvoteRequest(env, id) {
+  if (!Number.isInteger(id) || id <= 0) {
+    const error = new Error('リクエストが見つかりません');
+    error.status = 404;
+    throw error;
+  }
+
+  await env.DB.prepare(`
+    UPDATE song_requests
+    SET vote_count = CASE WHEN vote_count > 0 THEN vote_count - 1 ELSE 0 END,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).bind(id).run();
+  const row = await env.DB.prepare(`
+    SELECT id, title, artist, url, requester_name, status, vote_count, created_at, updated_at
+    FROM song_requests
+    WHERE id = ?
+  `).bind(id).first();
+  if (!row) {
+    const error = new Error('リクエストが見つかりません');
+    error.status = 404;
+    throw error;
+  }
+  return { ok: true, item: toItem(row) };
+}
+
 async function route({ request, env, params }) {
   if (!env.DB) return json({ error: 'D1 binding DB is missing' }, 500);
   await ensureSchema(env);
@@ -138,6 +164,11 @@ async function route({ request, env, params }) {
   const voteMatch = path.match(/^(\d+)\/vote$/);
   if (request.method === 'POST' && voteMatch) {
     return json(await voteRequest(env, Number(voteMatch[1])));
+  }
+
+  const unvoteMatch = path.match(/^(\d+)\/unvote$/);
+  if (request.method === 'POST' && unvoteMatch) {
+    return json(await unvoteRequest(env, Number(unvoteMatch[1])));
   }
 
   return json({ error: 'Not found' }, 404);

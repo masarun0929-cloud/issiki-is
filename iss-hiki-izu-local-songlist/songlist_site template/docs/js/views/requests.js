@@ -2,6 +2,19 @@ import { $, escapeHtml, fmtDate } from '../utils.js';
 import { icon } from '../icons.js';
 
 const API = '/api/song-requests';
+const VOTED_KEY = 'songRequestVotes';
+
+function votedIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(VOTED_KEY) || '[]').map(String));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveVotedIds(ids) {
+  localStorage.setItem(VOTED_KEY, JSON.stringify(Array.from(ids)));
+}
 
 async function readApiJson(res) {
   const text = await res.text();
@@ -157,7 +170,7 @@ function renderList(container, items) {
           ${item.createdAt ? `<span class="req-card-date">${fmtDate(item.createdAt)}</span>` : ''}
         </div>
       </div>
-      <button class="req-vote-btn" data-id="${item.id}" type="button" aria-label="聴きたい">
+      <button class="req-vote-btn ${votedIds().has(String(item.id)) ? 'req-voted' : ''}" data-id="${item.id}" type="button" aria-label="${votedIds().has(String(item.id)) ? '聴きたいを取り消す' : '聴きたい'}" title="${votedIds().has(String(item.id)) ? 'もう一度押すと取り消します' : '聴きたい'}">
         <span class="req-vote-icon" aria-hidden="true">${icon('heart')}</span>
         <span class="req-vote-count">${item.voteCount ?? item.vote_count ?? 0}</span>
       </button>
@@ -175,16 +188,31 @@ async function vote(btn) {
   btn.disabled = true;
   const icon = btn.querySelector('.req-vote-icon');
   const count = btn.querySelector('.req-vote-count');
+  const votes = votedIds();
+  const voted = votes.has(String(id));
   const prev = icon.textContent;
   icon.textContent = '♥';
 
   try {
-    const res = await fetch(`${API}/${id}/vote`, { method: 'POST' });
+    const res = await fetch(`${API}/${id}/${voted ? 'unvote' : 'vote'}`, { method: 'POST' });
     const data = await readApiJson(res);
     if (!res.ok) throw new Error(data.error || 'エラー');
     const n = data.item?.voteCount ?? data.item?.vote_count;
     if (n != null) count.textContent = n;
-    btn.classList.add('req-voted');
+    if (voted) {
+      votes.delete(String(id));
+      btn.classList.remove('req-voted');
+      btn.setAttribute('aria-label', '聴きたい');
+      btn.title = '聴きたい';
+      btn.disabled = false;
+    } else {
+      votes.add(String(id));
+      btn.classList.add('req-voted');
+      btn.setAttribute('aria-label', '聴きたいを取り消す');
+      btn.title = 'もう一度押すと取り消します';
+      btn.disabled = false;
+    }
+    saveVotedIds(votes);
   } catch {
     icon.textContent = prev;
     btn.disabled = false;

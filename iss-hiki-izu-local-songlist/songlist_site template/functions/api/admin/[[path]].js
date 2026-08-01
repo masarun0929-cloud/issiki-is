@@ -497,10 +497,106 @@ async function triggerStaticDataWorkflow(env) {
   return { ok: true, owner, repo, workflow, ref, requestedAt: todayIso() };
 }
 
+async function ensureSongRequestsSchema(env) {
+  await execute(env, `
+    CREATE TABLE IF NOT EXISTS song_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      artist TEXT NOT NULL DEFAULT '',
+      url TEXT NOT NULL DEFAULT '',
+      requester_name TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'unregistered',
+      vote_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await execute(env, 'CREATE INDEX IF NOT EXISTS idx_song_requests_votes ON song_requests(vote_count DESC, created_at DESC)');
+  await execute(env, 'CREATE INDEX IF NOT EXISTS idx_song_requests_created ON song_requests(created_at DESC)');
+}
+
+function requestItem(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    artist: row.artist || '',
+    url: row.url || '',
+    requesterName: row.requester_name || '',
+    status: row.status || 'unregistered',
+    voteCount: row.vote_count || 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function listSongRequests(env, request) {
+  await ensureSongRequestsSchema(env);
+  const url = new URL(request.url);
+  const status = normalize(url.searchParams.get('status') || 'all');
+  const q = normalize(url.searchParams.get('q') || '');
+  const limit = Math.max(1, Math.min(300, Number(url.searchParams.get('limit')) || 150));
+  const conditions = [];
+  const params = [];
+  if (status && status !== 'all') {
+    conditions.push('status = ?');
+    params.push(status);
+  }
+  if (q) {
+    conditions.push('(title LIKE ? OR artist LIKE ? OR requester_name LIKE ? OR url LIKE ?)');
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const rows = await select(env, `
+    SELECT id, title, artist, url, requester_name, status, vote_count, created_at, updated_at
+    FROM song_requests
+    ${where}
+    ORDER BY vote_count DESC, created_at DESC, id DESC
+    LIMIT ?
+  `, [...params, limit]);
+  const summaryRows = await select(env, 'SELECT status, COUNT(*) AS count FROM song_requests GROUP BY status');
+  const summary = Object.fromEntries(summaryRows.map((row) => [row.status || 'unregistered', row.count || 0]));
+  return { items: rows.map(requestItem), summary };
+}
+
+async function updateSongRequest(env, id, input) {
+  await ensureSongRequestsSchema(env);
+  const status = normalize(input.status || 'unregistered');
+  const allowed = new Set(['unregistered', 'practicing', 'singable', 'sung', 'rejected']);
+  if (!allowed.has(status)) throw new Error('status is invalid');
+  const voteCount = Math.max(0, Math.min(999999, Number(input.voteCount) || 0));
+  await execute(env, `
+    UPDATE song_requests
+    SET status = ?, vote_count = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `, [status, voteCount, id]);
+  const row = await selectOne(env, `
+    SELECT id, title, artist, url, requester_name, status, vote_count, created_at, updated_at
+    FROM song_requests
+    WHERE id = ?
+  `, [id]);
+  if (!row) {
+    const error = new Error('Request not found');
+    error.status = 404;
+    throw error;
+  }
+  return { ok: true, item: requestItem(row) };
+}
+
+async function deleteSongRequest(env, id) {
+  await ensureSongRequestsSchema(env);
+  await execute(env, 'DELETE FROM song_requests WHERE id = ?', [id]);
+  return { ok: true, id };
+}
+
 async function route(request, env, path) {
   if (!env.DB) throw new Error('D1 binding DB is missing');
   if (request.method === 'GET' && path === 'health') return { ok: true };
   if (request.method === 'GET' && path === 'channels') return { channels: await getChannels(env) };
+  if (request.method === 'GET' && path === 'song-requests') return listSongRequests(env, request);
+  const requestUpdateMatch = path.match(/^song-requests\/(\d+)$/);
+  if (request.method === 'POST' && requestUpdateMatch) return updateSongRequest(env, Number(requestUpdateMatch[1]), await readJson(request));
+  const requestDeleteMatch = path.match(/^song-requests\/(\d+)\/delete$/);
+  if (request.method === 'POST' && requestDeleteMatch) return deleteSongRequest(env, Number(requestDeleteMatch[1]));
   if (request.method === 'GET' && path === 'songs/search') {
     const url = new URL(request.url);
     return { songs: await searchSongs(env, { q: url.searchParams.get('q') || '' }) };
