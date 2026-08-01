@@ -393,7 +393,7 @@ function topBarRow(s, i, max) {
     <div class="bar-row clickable" role="button" tabindex="0" data-songkey="${escapeHtml(s.key)}" data-songtitle="${escapeHtml(s.title)}" data-songartist="${escapeHtml(s.artist)}">
       <div class="bar-rank">${i + 1}</div>
       <div class="bar-content">
-        <div class="bar-label">${escapeHtml(s.title)} <span style="color:var(--ink-mute);font-size:11px;">/ ${escapeHtml(s.artist)}</span></div>
+        <div class="bar-label">${escapeHtml(s.title)}${s.artist ? ` <span class="bar-label-sep">/</span> <button class="bar-label-artist artist-search-btn" type="button" data-artist-search="${escapeHtml(s.artist)}" title="このアーティストの曲を絞り込む">${escapeHtml(s.artist)}</button>` : ''}</div>
         <div class="bar-bar" style="width:${pct}%;"></div>
       </div>
       <div class="bar-value">${s.count}</div>

@@ -3,7 +3,7 @@ import { ensureSongTags, loadAll, loadInitial } from './data.js';
 import { buildIndex } from './search.js';
 import { initTheme, onThemeChange, cycleTheme } from './theme.js';
 import { onRerenderNeeded, destroyAllCharts } from './charts.js';
-import { $, $$, escapeHtml, fmtDate, isLink, streamKey, youtubeThumb, youtubeThumbHq, youtubeThumbTiny } from './utils.js';
+import { $, $$, escapeHtml, fmtDate, streamKey, youtubeThumb, youtubeThumbHq, youtubeThumbTiny } from './utils.js';
 import { DEFAULT_CHANNEL, SITE } from './config.js';
 import { readUrlState, writeUrlState } from './url-state.js';
 import { initSearchPalette, openSearchPalette, closeSearchPalette, isSearchPaletteOpen } from './views/search-palette.js';
@@ -750,15 +750,8 @@ $$('[data-audience]').forEach(btn => {
   btn.addEventListener('click', () => switchAudience(btn.dataset.audience));
 });
 
-// Global click → filter timeline by song
+// Global click → 曲名で詳細、アーティスト名で絞り込み（全ビュー共通）
 document.body.addEventListener('click', (e) => {
-  const timelineSong = e.target.closest('.timeline-setlist .setlist-title[data-songkey]');
-  if (timelineSong) {
-    e.preventDefault();
-    e.stopPropagation();
-    openSongDetail(timelineSong.dataset.songkey);
-    return;
-  }
   const artist = e.target.closest('[data-artist-search]');
   if (artist) {
     e.preventDefault();
@@ -794,10 +787,15 @@ document.body.addEventListener('click', (e) => {
     }
     return;
   }
-  if (isLink(e.target)) return;
-  const target = e.target.closest('[data-songkey]');
-  if (!target) return;
-  openSongDetail(target.dataset.songkey);
+  // 曲名クリック → 曲詳細。
+  // data-songkey を持つ要素自身が <button> の場合(タイムライン等)も拾いつつ、
+  // 行の中に入れ子になった別のリンク/ボタン(セトリ追加・YouTubeリンク等)は無視する。
+  const songEl = e.target.closest('[data-songkey]');
+  if (!songEl) return;
+  const control = e.target.closest('a[href], button');
+  if (control && control !== songEl) return;
+  e.preventDefault();
+  openSongDetail(songEl.dataset.songkey);
 });
 
 $('#retry-btn').addEventListener('click', init);
