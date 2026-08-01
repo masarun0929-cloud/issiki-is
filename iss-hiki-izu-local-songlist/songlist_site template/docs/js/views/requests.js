@@ -75,7 +75,7 @@ export function renderRequests() {
         <div class="req-form-head">
           <span class="help-kicker">Request</span>
           <h2 class="req-form-title">曲リクエスト</h2>
-          <p class="req-form-lead">歌ってほしい曲を送れます。既にある曲は一覧から「聴きたい」を押してください。</p>
+          <p class="req-form-lead">歌ってほしい曲をこのフォームから送れます。同じ曲が下の「みんなのリクエスト」にすでにある場合は、重ねて送らずにその曲の「聴きたい」を押してください。</p>
         </div>
         <form id="req-form" class="req-form" novalidate>
           <div class="req-field">
@@ -218,6 +218,7 @@ function renderList(container, items) {
         ${isOwn ? `<button class="req-delete-btn" data-delete-id="${item.id}" type="button" aria-label="自分のリクエストを取り消す" title="自分のリクエストを取り消す">${icon('close')}</button>` : ''}
         <button class="req-vote-btn ${votedIds().has(String(item.id)) ? 'req-voted' : ''}" data-id="${item.id}" type="button" aria-label="${votedIds().has(String(item.id)) ? '聴きたいを取り消す' : '聴きたい'}" title="${votedIds().has(String(item.id)) ? 'もう一度押すと取り消します' : '聴きたい'}">
           <span class="req-vote-icon" aria-hidden="true">${icon('heart')}</span>
+          <span class="req-vote-label">聴きたい</span>
           <span class="req-vote-count">${item.voteCount ?? item.vote_count ?? 0}</span>
         </button>
       </div>

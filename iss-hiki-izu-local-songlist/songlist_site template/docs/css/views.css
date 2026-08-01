@@ -2490,11 +2490,12 @@ body[data-audience="listener"] [data-mobile-panel-toggle="setlist"] {
   gap: 5px;
   min-width: 58px;
   height: 38px;
-  padding: 0 12px;
+  padding: 0 14px;
   border: 2px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
   color: var(--accent-strong);
+  white-space: nowrap;
   font-family: inherit;
   font-size: 12px;
   font-weight: 900;
@@ -2512,6 +2513,23 @@ body[data-audience="listener"] [data-mobile-panel-toggle="setlist"] {
 .req-vote-btn:disabled {
   opacity: 0.72;
   cursor: default;
+}
+
+/* ボタン上の「聴きたい」表示。狭い画面ではハートと数字だけにする */
+.req-vote-label {
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.req-vote-count {
+  min-width: 12px;
+  text-align: right;
+}
+
+@media (max-width: 480px) {
+  .req-vote-label {
+    display: none;
+  }
 }
 
 /* 自分の投稿だけに出る取り消しボタン */
