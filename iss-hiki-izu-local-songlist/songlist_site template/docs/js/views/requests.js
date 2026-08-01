@@ -75,7 +75,7 @@ export function renderRequests() {
         <div class="req-form-head">
           <span class="help-kicker">Request</span>
           <h2 class="req-form-title">曲リクエスト</h2>
-          <p class="req-form-lead">歌ってほしい曲をこのフォームから送れます。同じ曲が下の「みんなのリクエスト」にすでにある場合は、重ねて送らずにその曲の「聴きたい」を押してください。</p>
+          <p class="req-form-lead">歌ってほしい曲をこのフォームから送れます。同じ曲が「みんなのリクエスト」にすでにある場合は、重ねて送らずにその曲の「聴きたい」を押してください。</p>
         </div>
         <form id="req-form" class="req-form" novalidate>
           <div class="req-field">

@@ -211,10 +211,11 @@ function renderItem(s, idx, filter) {
           data-songtitle="${escapeHtml(song.title)}"
           data-songartist="${escapeHtml(song.artist)}"
           title="曲詳細を表示">${escapeHtml(song.title)}</button>
+        ${song.artist ? `
         <span class="setlist-separator">/</span>
         <button class="setlist-artist" type="button"
           data-artist-search="${escapeHtml(song.artist)}"
-          title="全曲リストで絞り込み">${escapeHtml(song.artist)}</button>
+          title="全曲リストで絞り込み">${escapeHtml(song.artist)}</button>` : ''}
       </li>`;
   }).join('');
   const titleHtml = s.url
