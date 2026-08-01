@@ -2739,10 +2739,7 @@ body[data-audience="listener"] [data-mobile-panel-toggle="setlist"] {
   text-align: right;
 }
 
-/* 曲名・アーティスト名をクリックできるようにした箇所。
-   見た目は文字のままにしたいので、ボタンの装飾だけ打ち消す。 */
-button.live-song-title,
-button.live-song-artist,
+/* ダッシュボードTOP5のアーティスト名。クリックできるが見た目は文字のままにする。 */
 .bar-label-artist {
   border: 0;
   background: transparent;
@@ -2750,21 +2747,14 @@ button.live-song-artist,
   font-family: inherit;
   font-weight: inherit;
   cursor: pointer;
+  color: var(--ink-mute);
+  font-size: 11px;
 }
 
-button.live-song-title:hover,
-button.live-song-artist:hover,
 .bar-label-artist:hover,
-button.live-song-title:focus-visible,
-button.live-song-artist:focus-visible,
 .bar-label-artist:focus-visible {
   color: var(--primary-strong);
   text-decoration: underline;
-}
-
-.bar-label-artist {
-  color: var(--ink-mute);
-  font-size: 11px;
 }
 
 .bar-label-sep {

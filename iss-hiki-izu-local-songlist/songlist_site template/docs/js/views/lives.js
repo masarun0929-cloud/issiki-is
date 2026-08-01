@@ -47,24 +47,13 @@ function latestDateText(value, lives) {
 }
 
 function renderLive(live) {
-  // 歌枠データにある曲だけ詳細を開けるようにする（ライブ限定曲は無反応にしない）
-  const knownKeys = new Set((state.data?.songs || []).map((s) => s.key));
-
-  const songs = (live.songs || []).map((song, index) => {
-    const label = escapeHtml(song.title || song.raw || '');
-    const titleHtml = song.key && knownKeys.has(song.key)
-      ? `<button class="live-song-title live-song-link" type="button" data-songkey="${escapeHtml(song.key)}" title="曲詳細を表示">${label}</button>`
-      : `<span class="live-song-title">${label}</span>`;
-    const artistHtml = song.artist && song.artist !== '(不明)'
-      ? `<button class="live-song-artist artist-search-btn" type="button" data-artist-search="${escapeHtml(song.artist)}" title="このアーティストの曲を絞り込む">${escapeHtml(song.artist)}</button>`
-      : '';
-    return `
+  const songs = (live.songs || []).map((song, index) => `
     <li>
       <span class="live-song-number">${song.position || index + 1}</span>
-      ${titleHtml}
-      ${artistHtml}
-    </li>`;
-  }).join('');
+      <span class="live-song-title">${escapeHtml(song.title || song.raw || '')}</span>
+      ${song.artist && song.artist !== '(不明)' ? `<span class="live-song-artist">${escapeHtml(song.artist)}</span>` : ''}
+    </li>
+  `).join('');
 
   return `
     <article class="live-card">
