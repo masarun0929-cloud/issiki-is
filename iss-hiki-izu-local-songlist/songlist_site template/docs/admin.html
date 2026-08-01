@@ -219,7 +219,7 @@
       <h2>更新手順</h2>
     </div>
     <ol class="admin-steps">
-      <li>ローカル管理画面またはD1 Consoleで歌枠データを更新する。</li>
+      <li>この管理ページまたはD1 Consoleで歌枠データを更新する。</li>
       <li>管理画面の「静的JSONを生成」で <code>docs/data/*.json</code> を更新する。</li>
       <li>変更をGitへcommit/pushしてCloudflare Pagesへ反映する。</li>
       <li>反映後、このページで件数と最新日付を確認する。</li>
@@ -227,8 +227,8 @@
     <div class="command-grid">
       <div>
         <h3>管理画面</h3>
-        <pre><code>node admin-server\server.js
-tailscale serve http://127.0.0.1:8788</code></pre>
+        <pre><code>このページ (/admin.html) が管理画面です。
+Cloudflare Pages の環境変数 ADMIN_TOKEN が必須です。</code></pre>
       </div>
       <div>
         <h3>Spreadsheet移行時</h3>

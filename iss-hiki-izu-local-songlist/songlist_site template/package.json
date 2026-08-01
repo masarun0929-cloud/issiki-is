@@ -6,7 +6,6 @@
     "convert:local": "node tools/convert-local-csv.mjs",
     "d1:seed-sql": "node tools/generate-d1-songlist-sql.mjs",
     "generate:static": "node tools/generate_static_data.mjs",
-    "admin": "node admin-server/server.js",
     "check": "node --check tools/convert-local-csv.mjs && node --check tools/generate-d1-songlist-sql.mjs && node --check tools/generate_static_data.mjs && node --check functions/api/data.js && node --check functions/api/song-requests/[[path]].js && node --check docs/js/views/requests.js"
   }
 }

@@ -16,8 +16,9 @@ Cloudflare D1
 Cloudflare Pages
   docs/ を公開し、通常は docs/data/*.json を読む
 
-admin-server/
-  Tailscaleなどローカル限定で開く歌枠追加・キー/ジャンル編集画面
+docs/admin.html
+  歌枠追加・キー/ジャンル編集・リクエスト管理を行う管理ページ
+  (ADMIN_TOKENで保護)
 ```
 
 ## 必要なもの
@@ -40,12 +41,11 @@ Tailscaleは管理画面を外に公開しないための推奨構成です。�
 | 公式リンク | `docs/index.html` | YouTube、X、お問い合わせフォーム |
 | Spreadsheet | `docs/js/config.js` | `SHEET_ID`、各チャンネルの `listGid` / `setlistGid` |
 | チャンネル名 | `docs/js/config.js`、`supabase/schema.sql` | `new` / `old` のラベルや初期行 |
-| 管理画面名 | `admin-server/server.js` | `<title>` と `<h1>` |
-| Cloudflare D1 | `admin-server/.env` | `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_D1_DATABASE_ID`、`CLOUDFLARE_API_TOKEN` |
-| キー参照シート | `admin-server/.env` | `KEY_REFERENCE_CSV_URL` |
+| 管理ページ名 | `docs/admin.html` | `<title>` と見出し |
+| 管理パスワード | Cloudflare Pages環境変数 | `ADMIN_TOKEN` |
 | SEO | `docs/robots.txt`、`docs/sitemap.xml` | 公開URL |
 | アイコン | `docs/assets/site-icon.svg` | サイト用アイコン。まずは同梱の汎用アイコンを使い、必要になったら差し替え |
-| オリジナル曲判定 | `docs/js/config.js`、Cloudflare Pages環境変数、`admin-server/.env` | `ORIGINAL_GENRE_KEYWORDS` |
+| オリジナル曲判定 | `docs/js/config.js`、Cloudflare Pages環境変数 | `ORIGINAL_GENRE_KEYWORDS` |
 
 まずは `docs/js/config.js` を変えると、見た目とデータ参照先の大部分を差し替えられます。HTMLを直接編集するのは、文言やレイアウトそのものを変えたいときだけで大丈夫です。
 
@@ -282,7 +282,6 @@ docs/
 functions/
 d1/
 supabase/schema.sql
-admin-server/env.example
 README.md
 VTUBER_SETUP.md
 INFRA_SETUP.md
@@ -292,7 +291,6 @@ AI_HELP_PROMPTS.md
 GitHubへ入れないもの:
 
 ```text
-admin-server/.env
 Cloudflare API token
 Supabase secret key
 ADMIN_TOKEN
@@ -322,39 +320,26 @@ Root directory: 空欄またはリポジトリルート
 
 GitHubやCloudflare Pagesで詰まった場合も、tokenやsecret keyは貼らず、[AI_HELP_PROMPTS.md](AI_HELP_PROMPTS.md) のテンプレートに `xxxxx` として相談してください。
 
-## 管理サーバー設定
+## 管理ページ設定
 
-`admin-server/env.example` を `admin-server/.env` にコピーして、自分の値を入れます。
+管理ページは公開サイトの `/admin.html` です。Cloudflare Pagesの環境変数に、管理用パスワードを設定します。
 
-```env
-CLOUDFLARE_ACCOUNT_ID=replace_with_cloudflare_account_id
-CLOUDFLARE_D1_DATABASE_ID=replace_with_d1_database_id
-CLOUDFLARE_API_TOKEN=replace_with_cloudflare_api_token
-ADMIN_HOST=127.0.0.1
-ADMIN_PORT=8788
+```text
 ADMIN_TOKEN=replace_with_private_admin_password
-ADMIN_TITLE=replace_with_vtuber_name 歌枠管理
 ORIGINAL_GENRE_KEYWORDS=replace_with_vtuber_name,replace_with_unit_name
-KEY_REFERENCE_CSV_URL=https://docs.google.com/spreadsheets/d/your_spreadsheet_id/edit?gid=your_gid#gid=your_gid
 ```
 
-起動します。
-
-```powershell
-node admin-server\server.js
-```
+Cloudflare Pagesの Settings → Environment variables で設定し、再デプロイします。
 
 ブラウザで確認します。
 
 ```text
-http://127.0.0.1:8788
+https://your-site.example/admin.html
 ```
 
-Tailscaleで同じtailnet内だけに出す場合:
+ページ上部に `ADMIN_TOKEN` と同じ値を入力すると操作できます。
 
-```powershell
-tailscale serve http://127.0.0.1:8788
-```
+`ADMIN_TOKEN` が未設定のままだと、管理APIは `503 ADMIN_TOKEN is not configured` を返します。設定を忘れたまま公開して、誰でも編集・削除できる状態になるのを防ぐための動作です。
 
 ## Spreadsheetから取り込む
 
@@ -376,7 +361,7 @@ D1を主運用にする場合は、管理画面から歌枠を追加するか、
 - `.env`、HAR、ログ、ローカルDB、個人情報入り画像がGitに入っていない
 - `docs/index.html` に別Vtuberさんの名前・公式リンク・説明文が入っている
 - `docs/js/config.js` のSpreadsheet ID/GIDが自分のものになっている
-- `admin-server/.env` に本物のCloudflare値を入れ、Gitに入れていない
+- Cloudflare Pagesの環境変数に `ADMIN_TOKEN` を設定し、Gitには入れていない
 - Cloudflare Pagesの `ORIGINAL_GENRE_KEYWORDS` が自分用になっている
 - Cloudflare PagesのD1 binding名が `DB` になっている
 - `/api/d1-test` がD1を読める
@@ -386,7 +371,7 @@ D1を主運用にする場合は、管理画面から歌枠を追加するか、
 
 ## AIへ相談するとき
 
-設定で詰まったら、[AI_HELP_PROMPTS.md](AI_HELP_PROMPTS.md) を使ってください。ChatGPTやGeminiへそのまま貼れる形で、Cloudflare Pages、D1、Supabase、admin-server別の相談文を用意しています。
+設定で詰まったら、[AI_HELP_PROMPTS.md](AI_HELP_PROMPTS.md) を使ってください。ChatGPTやGeminiへそのまま貼れる形で、Cloudflare Pages、D1、Supabase、管理ページ別の相談文を用意しています。
 
 ## 秘密情報の扱い
 

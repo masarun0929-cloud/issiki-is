@@ -7,7 +7,7 @@
 | 用語 | 意味 | このプロジェクトでは |
 | --- | --- | --- |
 | フロントエンド | ブラウザに表示される画面のこと | `docs/` のHTML、CSS、JavaScript |
-| バックエンド | 画面の裏側でデータを処理する仕組み | `functions/api/data.js` や `admin-server/` |
+| バックエンド | 画面の裏側でデータを処理する仕組み | `functions/api/data.js` や `functions/api/admin/` |
 | デプロイ | 作ったサイトをインターネット上で見られるように反映すること | GitHubへpushするとCloudflare Pagesが公開する |
 | ビルド | 公開前にファイルを変換・準備する処理 | このテンプレートでは基本的に不要。Build commandは空欄 |
 | リポジトリ | Gitで管理するプロジェクト一式 | GitHubに置くこのフォルダ全体 |
@@ -50,8 +50,8 @@
 | Preview | 確認用の仮環境 | branchやPRごとの確認に使う場合がある |
 | Environment variables | Cloudflare側に置く設定値 | `ORIGINAL_GENRE_KEYWORDS` など |
 | Secret | 外に見せてはいけない環境変数 | API tokenなど。公開HTMLへ出さない |
-| D1 database ID | D1を識別するID | `admin-server/.env` に入れる |
-| Account ID | CloudflareアカウントのID | `admin-server/.env` に入れる |
+| D1 database ID | D1を識別するID | Cloudflare Pagesの環境変数に入れる |
+| Account ID | CloudflareアカウントのID | Cloudflare Pagesの環境変数に入れる |
 | API token | Cloudflare APIを使うための鍵 | GitHubへ入れない |
 
 ## GitHub
@@ -69,7 +69,7 @@
 
 | 用語 | 意味 | このプロジェクトでは |
 | --- | --- | --- |
-| admin-server | ローカル用の管理画面 | `admin-server/server.js` |
+| 管理ページ | 曲・歌枠・リクエストを編集する画面 | `docs/admin.html` |
 | localhost | 自分のPCだけで見られるURL | `http://127.0.0.1:8788` |
 | Tailscale | 自分の端末だけで安全に繋ぐ仕組み | 管理画面を外に直接公開しないために使う |
 | ADMIN_TOKEN | 管理画面用の簡易パスワード | `.env` に入れ、GitHubへ入れない |
@@ -98,6 +98,6 @@ schemaを流す = D1 ConsoleやSQL Editorでschema.sqlを実行する
 
 ```text
 docs/ は公開サイト
-admin-server/ は管理画面
-.env は秘密情報なので公開しない
+docs/admin.html は管理ページ
+ADMIN_TOKEN は秘密情報なので公開しない
 ```

@@ -49,7 +49,7 @@ Cloudflare Account ID、D1 Database ID、Supabase Project URLは、必要な場�
 - 任意運用: Pages Functionsの functions/api/data.js がD1を読む動的API運用
 - 動的API運用時のD1 binding名: DB
 - D1 schema: d1/schema.sql
-- ローカル管理画面: admin-server/server.js
+- 管理ページ: docs/admin.html（Cloudflare Pages上で動作）
 - 管理画面はCloudflare D1 REST APIへ書き込みます
 - Supabaseは旧運用/移行用で、D1編集元/静的JSON公開の標準運用では必須ではありません
 
@@ -192,50 +192,41 @@ Cloudflare Pages Functionsの /api/data が失敗します。
 秘密情報は貼っていません。
 ```
 
-## admin-serverの `.env` を確認してもらう
+## 管理ページの環境変数を確認してもらう
 
 ```text
-ローカル管理画面 admin-server/server.js の .env 設定が正しいか見てください。
+Cloudflare Pagesで公開している管理ページ /admin.html が動かないので、環境変数の設定を見てください。
 
 実際の値は伏せています。
 
-```env
-CLOUDFLARE_ACCOUNT_ID=xxxxx
-CLOUDFLARE_D1_DATABASE_ID=xxxxx
-CLOUDFLARE_API_TOKEN=xxxxx
-ADMIN_HOST=127.0.0.1
-ADMIN_PORT=8788
+Cloudflare Pagesの環境変数:
+```text
 ADMIN_TOKEN=xxxxx
-ADMIN_TITLE=replace_with_vtuber_name 歌枠管理
 ORIGINAL_GENRE_KEYWORDS=replace_with_vtuber_name,replace_with_unit_name
-KEY_REFERENCE_CSV_URL=https://docs.google.com/spreadsheets/d/xxxxx/edit?gid=xxxxx#gid=xxxxx
 ```
 
-起動コマンド:
-```powershell
-node admin-server\server.js
-```
+D1 binding名: DB
 
 エラー:
 ```text
-（起動時やブラウザで出たエラーを貼る）
+（管理ページで出たエラーを貼る）
 ```
 
 確認してほしいこと:
-1. 必須環境変数が足りているか
-2. Cloudflare API Tokenの権限不足が疑われるか
-3. D1 Database IDとPages binding先のdatabaseが一致していそうか
-4. ADMIN_TOKENの入力方法に問題がないか
+1. ADMIN_TOKENが設定されているか（未設定だと管理APIは503を返します）
+2. 管理ページで入力したトークンがADMIN_TOKENと一致しているか
+3. D1 binding名が DB になっているか
+4. 環境変数を変更した後に再デプロイしたか
 ```
 
 ## Cloudflare API Token権限で詰まったとき
 
 ```text
-Cloudflare D1 REST APIへ admin-server から書き込みたいですが、API token権限で失敗しているかもしれません。
+Cloudflare D1へ管理ページから書き込みたいですが、権限まわりで失敗しているかもしれません。
 
 エラー:
 ```text
-（admin-server画面やterminalに出た D1 query failed の内容を貼る）
+（管理ページに出た D1 query failed の内容を貼る）
 ```
 
 やりたいこと:
@@ -320,7 +311,7 @@ https://docs.google.com/spreadsheets/d/xxxxx/edit?gid=123456789#gid=123456789
 - 標準運用: docs/data/*.json を読む静的JSON運用
 - 動的API運用を使う場合のD1 binding名: DB
 - Build output directory: docs
-- ローカル管理画面: admin-server/server.js
+- 管理ページ: docs/admin.html（Cloudflare Pages上で動作）
 
 症状:
 ```text

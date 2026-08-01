@@ -14,9 +14,8 @@ Cloudflare Pages
 Cloudflare D1
   歌枠、曲、アーティスト、チャンネル、キー、ジャンルを保存
 
-admin-server/
-  ローカル/Tailscale内だけで起動
-  Cloudflare D1 REST APIへ書き込み
+docs/admin.html + functions/api/admin/
+  公開サイト上の管理ページ。ADMIN_TOKENで保護し、D1へ書き込む
 
 Supabase
   旧Spreadsheetインポート運用を続ける場合だけ使用
@@ -36,8 +35,8 @@ Supabase
 そのため、最初に公開する人は次の流れが一番簡単です。
 
 ```text
-admin-serverでD1を編集
-管理画面で静的JSONを生成
+管理ページ(/admin.html)でD1を編集
+管理ページで静的JSONを生成
 docs/data/*.json をcommitしてpush
 Cloudflare Pagesが再デプロイ
 ```
@@ -68,7 +67,6 @@ Add license: 必要なら後で追加
 このプロジェクトでは、次のファイルをGitに入れない前提です。
 
 ```text
-admin-server/.env
 *.har
 *.log
 *.tmp
@@ -158,7 +156,6 @@ Root directory: 空欄またはリポジトリルート
 docs/
 functions/
 d1/schema.sql
-admin-server/env.example
 README.md
 VTUBER_SETUP.md
 INFRA_SETUP.md
@@ -168,7 +165,6 @@ AI_HELP_PROMPTS.md
 入れないもの:
 
 ```text
-admin-server/.env
 実トークンを含むメモ
 HAR
 ログ
@@ -212,7 +208,7 @@ Database name
 Account ID
 ```
 
-`Database ID` は `admin-server/.env` の `CLOUDFLARE_D1_DATABASE_ID` に入れます。
+`Database ID` と `Database name` は、Pagesの D1 binding (`DB`) の設定先を確認するときに使います。
 
 D1一覧では、作成済みdatabaseの名前とUUIDを確認できます。
 
@@ -469,7 +465,7 @@ Cloudflareの画面表記が変わっている場合は、「D1を読み書き�
 
 ### 2. Tokenを保存する場所
 
-保存先はローカルの [admin-server/.env](admin-server/env.example) だけです。
+Spreadsheet取り込みツールなどをローカルで動かす場合だけ、手元の環境変数に設定します。管理ページはD1 bindingを使うため、この token は不要です。
 
 ```env
 CLOUDFLARE_API_TOKEN=replace_with_cloudflare_api_token
@@ -488,49 +484,31 @@ Cloudflare Pagesの公開フロントエンド変数
 
 漏れた場合は、Cloudflare Dashboardでtokenを削除して作り直します。
 
-## admin-server/.env
+## 管理ページ用のCloudflare Pages環境変数
 
-[admin-server/env.example](admin-server/env.example) を `admin-server/.env` にコピーします。
+管理ページ (`/admin.html`) は Pages Functions (`functions/api/admin/`) 経由でD1を読み書きします。D1へはbinding `DB` を使うため、API tokenは不要です。
 
-```env
-CLOUDFLARE_ACCOUNT_ID=replace_with_cloudflare_account_id
-CLOUDFLARE_D1_DATABASE_ID=replace_with_d1_database_id
-CLOUDFLARE_API_TOKEN=replace_with_cloudflare_api_token
+Cloudflare Pages の Settings → Environment variables に設定します。
 
-ADMIN_HOST=127.0.0.1
-ADMIN_PORT=8788
+```text
 ADMIN_TOKEN=replace_with_private_admin_password
-
-ADMIN_TITLE=replace_with_vtuber_name 歌枠管理
 ORIGINAL_GENRE_KEYWORDS=replace_with_vtuber_name,replace_with_unit_name
-KEY_REFERENCE_CSV_URL=https://docs.google.com/spreadsheets/d/your_spreadsheet_id/edit?gid=your_gid#gid=your_gid
 ```
 
 各項目:
 
 | 変数 | 必須 | 用途 |
 | --- | --- | --- |
-| `CLOUDFLARE_ACCOUNT_ID` | 必須 | D1 REST APIのAccount指定 |
-| `CLOUDFLARE_D1_DATABASE_ID` | 必須 | 書き込み先D1 database |
-| `CLOUDFLARE_API_TOKEN` | 必須 | D1 REST API認証 |
-| `ADMIN_HOST` | 任意 | 通常は `127.0.0.1` |
-| `ADMIN_PORT` | 任意 | 通常は `8788` |
-| `ADMIN_TOKEN` | 推奨 | 管理画面/APIの簡易パスワード |
-| `ADMIN_TITLE` | 任意 | 管理画面のタイトル |
+| `ADMIN_TOKEN` | 必須 | 管理ページ/管理APIのパスワード。未設定だと管理APIは503を返し、操作できません |
 | `ORIGINAL_GENRE_KEYWORDS` | 任意 | オリジナル曲判定 |
-| `KEY_REFERENCE_CSV_URL` | 任意 | キー/ジャンル一括同期元 |
 
-起動:
-
-```powershell
-node admin-server\server.js
-```
-
-確認:
+設定後は再デプロイしてから確認します。
 
 ```text
-http://127.0.0.1:8788/api/health
+https://your-site.example/admin.html
 ```
+
+管理ページ上部に `ADMIN_TOKEN` と同じ値を入力すると操作できるようになります。
 
 Tailscale:
 
@@ -615,7 +593,7 @@ URLクエリに入れない
 | 項目 | D1編集元 + 静的JSON公開 | Supabase旧運用 |
 | --- | --- | --- |
 | 公開データ | 標準は静的JSON、任意で `/api/data` がD1を読む | 古い実装向け |
-| 管理画面 | `admin-server/` がD1へ書く | 対象外 |
+| 管理ページ | `/admin.html` がPages Functions経由でD1へ書く | 対象外 |
 | Spreadsheet取り込み | 手動/別途D1 import | `tools/import_supabase.py` |
 | 推奨 | 新規導入はこちら | 既存データ移行用 |
 
@@ -624,7 +602,7 @@ URLクエリに入れない
 ## 最小チェックリスト
 
 - GitHubへpushする前に `git status` を確認した
-- `admin-server/.env`、HAR、ログ、ローカルDBがGitに入っていない
+- 実トークンを含むメモ、HAR、ログ、ローカルDBがGitに入っていない
 - D1 databaseを作った
 - D1 Consoleで `d1/schema.sql` を実行した
 - D1に `live_events` / `live_event_songs` が作成されている
@@ -632,7 +610,7 @@ URLクエリに入れない
 - 動的API運用を使う場合はPages Functionsが有効
 - 動的API運用を使う場合はPagesのD1 binding名が `DB`
 - D1 bindingを追加した場合は再デプロイした
-- `admin-server/.env` にAccount ID、D1 Database ID、API Tokenを入れた
+- Cloudflare Pagesの環境変数に `ADMIN_TOKEN` を設定した
 - `ADMIN_TOKEN` を設定した
 - 管理画面で歌枠追加、リアルライブ情報追加、静的JSON生成ができる
 - 動的API運用を使う場合は `/api/d1-test` がD1の結果を返す

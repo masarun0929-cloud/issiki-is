@@ -13,8 +13,8 @@ docs/
 functions/api/data.js
   Cloudflare Pages Functions。動的API運用にする場合、D1から公開JSONを返す
 
-admin-server/
-  ローカルまたはTailscale内だけで使う管理画面
+functions/api/admin/
+  管理API。docs/admin.html から呼ばれ、ADMIN_TOKENで保護する
 
 d1/
   D1用の追加SQL
@@ -33,7 +33,7 @@ D1を編集元データベースとして使い、公開サイトは `docs/data/
 この構成が一番シンプルです。
 
 ```text
-admin-serverでD1を編集
+管理ページ(/admin.html)でD1を編集
   ↓
 静的JSONを生成
   ↓
@@ -53,27 +53,19 @@ Cloudflare Pagesで公開
 
 普段の更新手順:
 
-1. 歌枠追加や曲メタデータ編集は `admin-server/` の管理画面で行う
-2. リアルライブ情報も同じ管理画面の「リアルライブ情報」から追加する
-3. 管理画面の「静的JSONを生成」で `docs/data/*.json` を更新する
+1. 歌枠追加や曲メタデータ編集は公開サイトの `/admin.html` で行う
+2. リアルライブ情報も同じ管理ページの「リアルライブ情報」から追加する
+3. 管理ページの「静的JSONを生成」で `docs/data/*.json` を更新する
 4. 変更をGitへpushする
 5. Cloudflare Pagesの自動デプロイで公開サイトへ反映する
 
-```powershell
-node admin-server\server.js
-```
-
 ```text
-http://127.0.0.1:8788
+https://your-site.example/admin.html
 ```
 
-Tailscale内に出す場合:
+管理ページを開くには、Cloudflare Pagesの環境変数 `ADMIN_TOKEN` を設定し、ページ上部でそのトークンを入力します。
 
-```powershell
-tailscale serve http://127.0.0.1:8788
-```
-
-管理サーバーの詳細は [admin-server/README.md](admin-server/README.md) を参照してください。
+`ADMIN_TOKEN` が未設定の場合、管理APIは `503 ADMIN_TOKEN is not configured` を返して操作を受け付けません。設定し忘れたまま公開して、誰でも編集・削除できる状態になるのを防ぐためです。
 
 ## GitHubで公開する場合
 
@@ -82,7 +74,7 @@ tailscale serve http://127.0.0.1:8788
 公開前に確認すること:
 
 ```text
-admin-server/.env が存在してもGitに入っていない
+ADMIN_TOKEN やAPI tokenがGitに入っていない
 *.har や *.log がGitに入っていない
 docs/data/*.json が公開してよいデータだけになっている
 docs/js/config.js がサンプル値または公開してよい値になっている
@@ -120,16 +112,13 @@ npm run d1:seed-sql
 
 静的JSON運用だけなら、公開サイトの表示自体は `docs/data/*.json` で完結します。ただし `/api/data` と `/api/d1-test` を使ってD1接続確認もしたい場合は、D1 bindingを設定します。
 
-管理サーバーは `admin-server/env.example` を `admin-server/.env` にコピーして設定します。
+管理ページを使うには、Cloudflare Pagesの環境変数に管理用パスワードを設定します。
 
-```env
-CLOUDFLARE_ACCOUNT_ID=replace_with_cloudflare_account_id
-CLOUDFLARE_D1_DATABASE_ID=replace_with_d1_database_id
-CLOUDFLARE_API_TOKEN=replace_with_cloudflare_api_token
+```text
 ADMIN_TOKEN=replace_with_private_admin_password
 ```
 
-`.env` はGitへcommitしません。
+このトークンはGitへcommitしません。Cloudflare Pagesの Settings → Environment variables で設定します。
 
 Cloudflare Pages、D1、API token、Supabase旧運用の細かい設定は [INFRA_SETUP.md](INFRA_SETUP.md) にまとめています。
 
@@ -176,7 +165,7 @@ CHANNELS
 ORIGINAL_GENRE_KEYWORDS
 ```
 
-管理画面は [admin-server/env.example](admin-server/env.example) をコピーした `.env` で `ADMIN_TITLE` と `ORIGINAL_GENRE_KEYWORDS` を変えます。
+管理ページ用の `ADMIN_TOKEN` と `ORIGINAL_GENRE_KEYWORDS` は、Cloudflare Pagesの環境変数で設定します。
 
 Cloudflare Pagesにも、必要なら環境変数 `ORIGINAL_GENRE_KEYWORDS` を設定します。値はカンマ区切りです。
 

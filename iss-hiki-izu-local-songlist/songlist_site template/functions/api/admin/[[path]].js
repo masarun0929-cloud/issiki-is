@@ -44,7 +44,14 @@ async function readJson(request) {
 }
 
 function assertAdmin(request, env) {
-  if (!env.ADMIN_TOKEN) return;
+  // ADMIN_TOKEN 未設定なら拒否する。
+  // 素通りさせると、環境変数を設定し忘れたまま公開したときに
+  // 管理API(曲・歌枠・リクエストの編集/削除)が誰でも叩ける状態になるため。
+  if (!env.ADMIN_TOKEN) {
+    const error = new Error('ADMIN_TOKEN is not configured');
+    error.status = 503;
+    throw error;
+  }
   if (request.headers.get('x-admin-token') !== env.ADMIN_TOKEN) {
     const error = new Error('Invalid admin token');
     error.status = 401;
