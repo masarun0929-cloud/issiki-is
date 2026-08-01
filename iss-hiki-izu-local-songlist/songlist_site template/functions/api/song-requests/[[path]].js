@@ -27,12 +27,34 @@ async function ensureSchema(env) {
       requester_name TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'unregistered',
       vote_count INTEGER NOT NULL DEFAULT 0,
+      owner_token_hash TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+  // 既存テーブルにも投稿者トークン列を足す。既にあれば ALTER が失敗するので無視する。
+  try {
+    await env.DB.prepare('ALTER TABLE song_requests ADD COLUMN owner_token_hash TEXT').run();
+  } catch {
+    // 追加済み
+  }
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_song_requests_votes ON song_requests(vote_count DESC, created_at DESC)').run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_song_requests_created ON song_requests(created_at DESC)').run();
+}
+
+/**
+ * 投稿者本人だけが取り消せるようにするためのトークン。
+ * 作成時に1度だけ返し、DBにはSHA-256ハッシュだけを保存する。
+ */
+function generateOwnerToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashOwnerToken(token) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function toItem(row) {
@@ -89,17 +111,77 @@ async function listRequests(env, request) {
 
 async function createRequest(env, request) {
   const payload = cleanPayload(await readJson(request));
+  const ownerToken = generateOwnerToken();
   const result = await env.DB.prepare(`
-    INSERT INTO song_requests (title, artist, url, requester_name)
-    VALUES (?, ?, ?, ?)
-  `).bind(payload.title, payload.artist, payload.url, payload.requesterName).run();
+    INSERT INTO song_requests (title, artist, url, requester_name, owner_token_hash)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(
+    payload.title,
+    payload.artist,
+    payload.url,
+    payload.requesterName,
+    await hashOwnerToken(ownerToken),
+  ).run();
   const id = result.meta?.last_row_id;
   const row = await env.DB.prepare(`
     SELECT id, title, artist, url, requester_name, status, vote_count, created_at, updated_at
     FROM song_requests
     WHERE id = ?
   `).bind(id).first();
-  return json({ ok: true, item: toItem(row) }, 201);
+  // ownerToken はここでしか返さない。投稿者のブラウザだけが保持する。
+  return json({ ok: true, item: toItem(row), ownerToken }, 201);
+}
+
+/**
+ * 投稿者本人による取り消し。
+ * 誰かが投票済み、または運営が対応を始めた後は取り消せない。
+ */
+async function deleteOwnRequest(env, id, payload) {
+  if (!Number.isInteger(id) || id <= 0) {
+    const error = new Error('リクエストが見つかりません');
+    error.status = 404;
+    throw error;
+  }
+
+  const token = normalize(payload.ownerToken);
+  if (!token) {
+    const error = new Error('取り消しキーがありません');
+    error.status = 400;
+    throw error;
+  }
+
+  const row = await env.DB.prepare(`
+    SELECT id, status, vote_count, owner_token_hash
+    FROM song_requests
+    WHERE id = ?
+  `).bind(id).first();
+
+  if (!row) {
+    const error = new Error('リクエストが見つかりません');
+    error.status = 404;
+    throw error;
+  }
+
+  if (!row.owner_token_hash || row.owner_token_hash !== await hashOwnerToken(token)) {
+    const error = new Error('このリクエストは取り消せません');
+    error.status = 403;
+    throw error;
+  }
+
+  if ((row.vote_count || 0) > 1) {
+    const error = new Error('他の人が投票しているため取り消せません');
+    error.status = 409;
+    throw error;
+  }
+
+  if ((row.status || 'unregistered') !== 'unregistered') {
+    const error = new Error('すでに対応が始まっているため取り消せません');
+    error.status = 409;
+    throw error;
+  }
+
+  await env.DB.prepare('DELETE FROM song_requests WHERE id = ?').bind(id).run();
+  return { ok: true, id };
 }
 
 async function voteRequest(env, id) {
@@ -169,6 +251,11 @@ async function route({ request, env, params }) {
   const unvoteMatch = path.match(/^(\d+)\/unvote$/);
   if (request.method === 'POST' && unvoteMatch) {
     return json(await unvoteRequest(env, Number(unvoteMatch[1])));
+  }
+
+  const deleteMatch = path.match(/^(\d+)\/delete$/);
+  if (request.method === 'POST' && deleteMatch) {
+    return json(await deleteOwnRequest(env, Number(deleteMatch[1]), await readJson(request)));
   }
 
   return json({ error: 'Not found' }, 404);

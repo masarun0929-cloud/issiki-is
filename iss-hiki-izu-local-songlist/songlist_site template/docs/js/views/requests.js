@@ -3,6 +3,7 @@ import { icon } from '../icons.js';
 
 const API = '/api/song-requests';
 const VOTED_KEY = 'songRequestVotes';
+const OWNER_KEY = 'songRequestOwners';
 
 function votedIds() {
   try {
@@ -14,6 +15,41 @@ function votedIds() {
 
 function saveVotedIds(ids) {
   localStorage.setItem(VOTED_KEY, JSON.stringify(Array.from(ids)));
+}
+
+/**
+ * 自分が投稿したリクエストの取り消しキー。
+ * { リクエストID: ownerToken } をこのブラウザだけに保存する。
+ * サーバーはハッシュしか持たないため、ここを消すと自分では取り消せなくなる。
+ */
+function ownerTokens() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(OWNER_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveOwnerToken(id, token) {
+  if (!id || !token) return;
+  const tokens = ownerTokens();
+  tokens[String(id)] = token;
+  try {
+    localStorage.setItem(OWNER_KEY, JSON.stringify(tokens));
+  } catch {
+    // 保存できない場合は取り消しボタンが出ないだけ
+  }
+}
+
+function forgetOwnerToken(id) {
+  const tokens = ownerTokens();
+  delete tokens[String(id)];
+  try {
+    localStorage.setItem(OWNER_KEY, JSON.stringify(tokens));
+  } catch {
+    // 何もしない
+  }
 }
 
 async function readApiJson(res) {
@@ -120,6 +156,9 @@ function initForm() {
       const data = await readApiJson(res);
       if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
 
+      // 自分の投稿として取り消せるように、返ってきたキーを保存する
+      saveOwnerToken(data.item?.id, data.ownerToken);
+
       showMsg(msg, '✅ リクエストを送信しました！ありがとうございます', 'success');
       form.reset();
       await loadList();
@@ -156,13 +195,18 @@ function renderList(container, items) {
     return;
   }
 
-  container.innerHTML = items.map((item, index) => `
+  const owned = ownerTokens();
+
+  container.innerHTML = items.map((item, index) => {
+    const isOwn = Boolean(owned[String(item.id)]);
+    return `
     <div class="req-card" data-id="${item.id}">
       <span class="req-rank">${index + 1}</span>
       <div class="req-card-body">
         <div class="req-card-main">
           <span class="req-card-title">${escapeHtml(item.title)}</span>
           ${item.artist ? `<span class="req-card-artist">${escapeHtml(item.artist)}</span>` : ''}
+          ${isOwn ? '<span class="req-card-own">自分の投稿</span>' : ''}
         </div>
         <div class="req-card-meta">
           ${item.url ? `<a class="req-card-url" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">リンクを開く</a>` : ''}
@@ -170,16 +214,53 @@ function renderList(container, items) {
           ${item.createdAt ? `<span class="req-card-date">${fmtDate(item.createdAt)}</span>` : ''}
         </div>
       </div>
-      <button class="req-vote-btn ${votedIds().has(String(item.id)) ? 'req-voted' : ''}" data-id="${item.id}" type="button" aria-label="${votedIds().has(String(item.id)) ? '聴きたいを取り消す' : '聴きたい'}" title="${votedIds().has(String(item.id)) ? 'もう一度押すと取り消します' : '聴きたい'}">
-        <span class="req-vote-icon" aria-hidden="true">${icon('heart')}</span>
-        <span class="req-vote-count">${item.voteCount ?? item.vote_count ?? 0}</span>
-      </button>
+      <div class="req-card-actions">
+        ${isOwn ? `<button class="req-delete-btn" data-delete-id="${item.id}" type="button" aria-label="自分のリクエストを取り消す" title="自分のリクエストを取り消す">${icon('close')}</button>` : ''}
+        <button class="req-vote-btn ${votedIds().has(String(item.id)) ? 'req-voted' : ''}" data-id="${item.id}" type="button" aria-label="${votedIds().has(String(item.id)) ? '聴きたいを取り消す' : '聴きたい'}" title="${votedIds().has(String(item.id)) ? 'もう一度押すと取り消します' : '聴きたい'}">
+          <span class="req-vote-icon" aria-hidden="true">${icon('heart')}</span>
+          <span class="req-vote-count">${item.voteCount ?? item.vote_count ?? 0}</span>
+        </button>
+      </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   container.querySelectorAll('.req-vote-btn').forEach((btn) => {
     btn.addEventListener('click', () => vote(btn));
   });
+
+  container.querySelectorAll('.req-delete-btn').forEach((btn) => {
+    btn.addEventListener('click', () => deleteOwn(btn));
+  });
+}
+
+/** 自分の投稿を取り消す（保存済みの ownerToken を送ってサーバー側で照合） */
+async function deleteOwn(btn) {
+  if (btn.disabled) return;
+  const id = btn.dataset.deleteId;
+  const token = ownerTokens()[String(id)];
+  if (!token) return;
+
+  const card = btn.closest('.req-card');
+  const title = card?.querySelector('.req-card-title')?.textContent || 'このリクエスト';
+  if (!window.confirm(`「${title}」のリクエストを取り消しますか？`)) return;
+
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/${id}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerToken: token }),
+    });
+    const data = await readApiJson(res);
+    if (!res.ok) throw new Error(data.error || '取り消せませんでした');
+
+    forgetOwnerToken(id);
+    await loadList();
+  } catch (err) {
+    btn.disabled = false;
+    window.alert(`⚠️ ${err.message}`);
+  }
 }
 
 async function vote(btn) {
