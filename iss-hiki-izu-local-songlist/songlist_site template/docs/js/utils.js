@@ -44,6 +44,39 @@ export function youtubeThumbTiny(url) {
   return id ? `https://i.ytimg.com/vi/${id}/default.jpg` : '';
 }
 
+/**
+ * 秒を配信内の時刻表記にする（1時間未満は m:ss、超えたら h:mm:ss）。
+ * 固定コメントの書き方に合わせてある。
+ */
+export function fmtTs(seconds) {
+  // 0 は正当な値（配信の頭）なので、null/undefined/空文字だけを弾く
+  if (seconds == null || seconds === '') return '';
+  const total = Math.floor(Number(seconds));
+  if (!Number.isFinite(total) || total < 0) return '';
+  const h = Math.floor(total / 3600);
+  const m = Math.floor(total / 60) % 60;
+  const s = total % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+/**
+ * YouTube の URL に再生開始位置を付ける。
+ * 既に t が付いている URL は付け直す（二重に付かないようにする）。
+ * 秒数が無い・0 以下・URL が空のときは元の URL をそのまま返す。
+ */
+export function youtubeUrlAt(url, seconds) {
+  const base = String(url || '');
+  const total = Math.floor(Number(seconds));
+  if (!base || !Number.isFinite(total) || total <= 0) return base;
+
+  const [withoutHash, hash] = base.split('#');
+  const [path, query = ''] = withoutHash.split('?');
+  const params = query.split('&').filter((part) => part && !/^t=/.test(part));
+  params.push(`t=${total}`);
+  return `${path}?${params.join('&')}${hash ? `#${hash}` : ''}`;
+}
+
 export const debounce = (fn, ms = 150) => {
   let t;
   return (...args) => {

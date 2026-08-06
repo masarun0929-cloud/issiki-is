@@ -1,0 +1,11 @@
+# wrangler のローカルキャッシュ（アカウント情報を含む）
+.wrangler/
+
+# 秘密情報
+.env
+.env.*
+
+# ローカル作業用
+node_modules/
+*.har
+*.log

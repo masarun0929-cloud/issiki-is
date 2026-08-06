@@ -901,25 +901,43 @@ let _svCurSongIdx = -1; // 現在再生中の曲インデックス
 
 function _svSongRow(song, i, ts, currentIdx) {
   const isCurrent = i === currentIdx;
-  const time = ts[i];
-  const badge = time != null
-    ? `<button class="sv-ts-badge" data-idx="${i}" data-action="seek" title="${escapeHtml(_fmtTs(time))} に移動">${escapeHtml(_fmtTs(time))}</button><button class="sv-ts-del" data-idx="${i}" data-action="del-ts" aria-label="タイムスタンプ削除">${icon('close')}</button>`
+  const time = ts[i];                          // 自分のメモ（localStorage）
+  // 承認済み。API 応答を待つ間も出せるよう、streams.json の t を初期値に使う
+  const ctsItems = _svCommunityTs[i]
+    || (song.t != null ? [{ timeSeconds: song.t, note: null }] : []);
+  const primary = ctsItems[0] || null;
+
+  let leadBadge;
+  if (primary) {
+    leadBadge = `<button class="sv-cts-main" data-idx="${i}" data-action="cts-seek" data-cts-seconds="${primary.timeSeconds}" title="この曲の頭（${escapeHtml(_fmtTs(primary.timeSeconds))}）へ移動">${escapeHtml(_fmtTs(primary.timeSeconds))}</button>`;
+  } else if (time != null) {
+    leadBadge = `<button class="sv-ts-badge" data-idx="${i}" data-action="seek" title="自分のメモ（${escapeHtml(_fmtTs(time))}）へ移動">${escapeHtml(_fmtTs(time))}</button>`;
+  } else {
+    leadBadge = '<span class="sv-cts-main is-empty" aria-hidden="true">–</span>';
+  }
+
+  const memoChip = (primary && time != null)
+    ? `<button class="sv-ts-badge is-memo" data-idx="${i}" data-action="seek" title="自分のメモ（${escapeHtml(_fmtTs(time))}）へ移動">${escapeHtml(_fmtTs(time))}</button>`
     : '';
-  // コミュニティタイムスタンプ（承認済み）
-  const ctsItems = _svCommunityTs[i] || [];
-  const ctsBadges = ctsItems.map(ct =>
-    `<button class="sv-cts-badge" data-idx="${i}" data-action="cts-seek" data-cts-seconds="${ct.timeSeconds}" title="みんなのタイムスタンプ: ${escapeHtml(_fmtTs(ct.timeSeconds))}">${escapeHtml(_fmtTs(ct.timeSeconds))}</button>`
+  const delBtn = time != null
+    ? `<button class="sv-ts-del" data-idx="${i}" data-action="del-ts" aria-label="自分のメモを削除">${icon('close')}</button>`
+    : '';
+
+  // 2件目以降は予備扱い。通常は無いので、あるときだけ2行目を出す
+  const extras = ctsItems.slice(1).map(ct =>
+    `<button class="sv-cts-badge" data-idx="${i}" data-action="cts-seek" data-cts-seconds="${ct.timeSeconds}" title="別候補: ${escapeHtml(_fmtTs(ct.timeSeconds))}">${escapeHtml(_fmtTs(ct.timeSeconds))}</button>`
   ).join('');
-  const proposeBtn = `<button class="sv-cts-propose" data-idx="${i}" data-action="cts-propose" type="button">+ 提案</button>`;
-  const ctsRow = `<div class="sv-cts-row">${ctsBadges}${proposeBtn}</div>`;
+  const extraRow = extras ? `<div class="sv-cts-row">${extras}</div>` : '';
+
   return `<div class="sv-song${isCurrent ? ' is-current' : ''}" data-idx="${i}">
     <span class="sv-song-num">${i + 1}</span>
+    <div class="sv-song-lead">${leadBadge}</div>
     <div class="sv-song-info">
-      <span class="sv-song-title">${escapeHtml(song.title)}</span>
-      <span class="sv-song-artist">${escapeHtml(song.artist)}</span>
+      <span class="sv-song-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
+      <span class="sv-song-artist" title="${escapeHtml(song.artist)}">${escapeHtml(song.artist)}</span>
     </div>
-    <div class="sv-song-actions">${badge}<button class="sv-ts-set" data-idx="${i}" data-action="set-ts" title="現在の再生時刻をタイムスタンプに記録">${icon('time')} メモ</button></div>
-    ${ctsRow}
+    <div class="sv-song-actions">${memoChip}${delBtn}<button class="sv-ts-set" data-idx="${i}" data-action="set-ts" title="現在の再生時刻を自分用にメモする">${icon('time')}</button></div>
+    ${extraRow}
   </div>`;
 }
 

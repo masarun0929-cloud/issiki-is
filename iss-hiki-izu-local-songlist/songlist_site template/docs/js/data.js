@@ -207,6 +207,8 @@ function hydrateDataset(dataset) {
         artist: item.artist || song?.artist || '',
         key: item.key || song?.key || '',
         raw: item.raw || '',
+        // t は曲の開始秒。曲詳細から該当地点へ飛ぶために持ち回す
+        t: item.t ?? null,
       };
     });
   }

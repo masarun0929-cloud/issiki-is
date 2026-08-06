@@ -83,7 +83,21 @@ function deriveArtists(songs) {
   return Array.from(byArtist.values()).sort((a, b) => b.totalCount - a.totalCount);
 }
 
+/**
+ * 承認済みタイムスタンプを `channel#streamIndex#songIndex` で引ける形にする。
+ * 曲詳細から「その曲が始まる位置」へ飛ぶために静的データへ焼き込む。
+ */
+function timestampIndex(tables) {
+  const map = new Map();
+  for (const row of tables.community_timestamps || []) {
+    if (row.status !== 'approved') continue;
+    map.set(`${row.channel_code}#${row.stream_index}#${row.song_index}`, Number(row.time_seconds));
+  }
+  return map;
+}
+
 function buildDataset(channel, tables) {
+  const tsIndex = timestampIndex(tables);
   const statsBySong = new Map(
     tables.song_channel_stats
       .filter((row) => row.channel_id === channel.id)
@@ -102,13 +116,16 @@ function buildDataset(channel, tables) {
     .filter((row) => row.channel_id === channel.id)
     .map((stream) => {
       const date = stream.streamed_on;
-      const streamSongs = (streamSongsByStreamId.get(stream.id) || []).map((row) => {
+      const streamSongs = (streamSongsByStreamId.get(stream.id) || []).map((row, i) => {
         const song = songsById.get(row.song_id);
+        // t は曲の開始秒。無い曲ではキーごと省いて容量を抑える
+        const t = tsIndex.get(`${channel.code}#${stream.source_index || 0}#${i}`);
         return {
           title: normalize(song?.title || row.title_snapshot),
           artist: normalize(artistsById.get(song?.artist_id)?.name || row.artist_snapshot),
           key: song?.song_key || row.song_key_snapshot,
           raw: row.raw_text || '',
+          ...(t == null ? {} : { t }),
         };
       });
       const jsDate = new Date(`${date}T00:00:00`);
@@ -259,7 +276,7 @@ function buildLives(tables) {
 }
 
 async function main() {
-  const [channels, artists, songs, streams, streamSongs, songChannelStats, liveEvents, liveEventSongs] = await Promise.all([
+  const [channels, artists, songs, streams, streamSongs, songChannelStats, liveEvents, liveEventSongs, communityTimestamps] = await Promise.all([
     select('channels', 'sort_order ASC, id ASC'),
     select('artists', 'id ASC'),
     select('songs', 'id ASC'),
@@ -268,8 +285,9 @@ async function main() {
     select('song_channel_stats', 'channel_id ASC, song_id ASC'),
     select('live_events', 'performed_on DESC, id ASC').catch(() => []),
     select('live_event_songs', 'live_event_id ASC, position ASC, id ASC').catch(() => []),
+    select('community_timestamps', 'channel_code ASC, stream_index ASC, song_index ASC').catch(() => []),
   ]);
-  const tables = { artists, songs, streams, stream_songs: streamSongs, song_channel_stats: songChannelStats, live_events: liveEvents, live_event_songs: liveEventSongs };
+  const tables = { artists, songs, streams, stream_songs: streamSongs, song_channel_stats: songChannelStats, live_events: liveEvents, live_event_songs: liveEventSongs, community_timestamps: communityTimestamps };
   const channelDatasets = Object.fromEntries(channels.map((channel) => [channel.code, buildDataset(channel, tables)]));
   const combined = mergeChannels(Object.values(channelDatasets));
   const liveData = buildLives(tables);

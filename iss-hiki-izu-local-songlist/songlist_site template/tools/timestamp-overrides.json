@@ -1,0 +1,149 @@
+{
+  "_readme": [
+    "固定コメントの誤記や、スキャナーで拾えなかった枠を手で補正する。",
+    "自動照合のあとに最後に被せる（手入力を優先）。",
+    "mode: merge = 不足分だけ足す / replace = スキャン結果を捨ててこれだけ使う",
+    "songs[].songIndex を指定すると、同じ曲が複数回歌われた枠でも位置を特定できる。",
+    "songIndex を省いた場合は key の出現順に割り当てる。"
+  ],
+  "overrides": {
+    "Cm3YPtbvEXY": {
+      "index": 75,
+      "mode": "merge",
+      "note": "コメントの打ち間違い 4:60:04（60分は無効）。セトリ順で次の弱虫モンブラン 4:53:26 より前なので 4:50:04 と読む",
+      "songs": [
+        {
+          "songIndex": 42,
+          "key": "ひとりごつ__ハチワレ(cv.田中誠人)",
+          "at": "4:50:04"
+        }
+      ]
+    },
+    "hLVIpgbi8ig": {
+      "index": 56,
+      "mode": "merge",
+      "note": "コメントの打ち間違い 3:97:07（97分は無効）。2回目が3:11:07、次曲が3:16:33なので1回目は 3:07:07 と読む",
+      "songs": [
+        {
+          "songIndex": 29,
+          "key": "チェリーポップ__deco*27 feat. 初音ミク",
+          "at": "3:07:07"
+        },
+        {
+          "songIndex": 30,
+          "key": "チェリーポップ__deco*27 feat. 初音ミク",
+          "at": "3:11:07"
+        }
+      ]
+    },
+    "I21mf4gg7Uw": {
+      "index": 52,
+      "mode": "merge",
+      "note": "コメントに時刻の記入漏れがあった1曲。動画を確認して補完",
+      "songs": [
+        {
+          "songIndex": 28,
+          "key": "お返事まだカナ💦❓おじさん構文😁❗️__吉本おじさん feat. 雨衣",
+          "at": "2:41:44"
+        }
+      ]
+    },
+    "bSxyG04ixA4": {
+      "index": 79,
+      "mode": "replace",
+      "note": "コメントが3曲を書き漏らしていたため、動画を確認した正しいセトリで全曲を置き換える",
+      "songs": [
+        {
+          "songIndex": 0,
+          "key": "ミュージック・アワー__ポルノグラフィティ",
+          "at": "7:09"
+        },
+        {
+          "songIndex": 1,
+          "key": "one love__嵐",
+          "at": "11:56"
+        },
+        {
+          "songIndex": 2,
+          "key": "snow halation__μ's",
+          "at": "25:36"
+        },
+        {
+          "songIndex": 3,
+          "key": "明日の私に幸あれ__ナナヲアカリ",
+          "at": "30:14"
+        },
+        {
+          "songIndex": 4,
+          "key": "pop in 2__b小町",
+          "at": "37:59"
+        },
+        {
+          "songIndex": 5,
+          "key": "可愛くてごめん__feat. ちゅーたん(cv.早見沙織)/honeyworks",
+          "at": "46:20"
+        },
+        {
+          "songIndex": 6,
+          "key": "おじゃま虫__deco*27 feat. 初音ミク",
+          "at": "51:07"
+        },
+        {
+          "songIndex": 7,
+          "key": "シカ色デイズ__シカ部",
+          "at": "56:14"
+        },
+        {
+          "songIndex": 8,
+          "key": "パンダヒーロー__ハチ feat. gumi",
+          "at": "1:03:20"
+        },
+        {
+          "songIndex": 9,
+          "key": "モニタリング__deco*27 feat. 初音ミク",
+          "at": "1:08:39"
+        },
+        {
+          "songIndex": 10,
+          "key": "東京テディベア__neru feat. 鏡音リン",
+          "at": "1:14:17"
+        },
+        {
+          "songIndex": 11,
+          "key": "ギラギラ__ado",
+          "at": "1:20:27"
+        },
+        {
+          "songIndex": 12,
+          "key": "glamorous sky__中島美嘉",
+          "at": "1:27:40"
+        },
+        {
+          "songIndex": 13,
+          "key": "unravel__tk from 凛として時雨",
+          "at": "1:34:04"
+        },
+        {
+          "songIndex": 14,
+          "key": "ギターと孤独と蒼い惑星__結束バンド",
+          "at": "1:42:08"
+        },
+        {
+          "songIndex": 15,
+          "key": "車輪の唄__bump of chicken",
+          "at": "1:49:56"
+        },
+        {
+          "songIndex": 16,
+          "key": "ミカヅキ__さユり",
+          "at": "1:59:45"
+        },
+        {
+          "songIndex": 17,
+          "key": "best friend__西野カナ",
+          "at": "2:08:22"
+        }
+      ]
+    }
+  }
+}

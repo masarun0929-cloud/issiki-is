@@ -2838,7 +2838,10 @@ body.has-sv-fullscreen .container { z-index: auto; }
 
 .sv-song {
   display: grid;
-  grid-template-columns: 22px 1fr auto;
+  /* 番号 / 曲の頭の時刻 / 曲名 / 操作。
+     セトリ列は300px前後しかないので、時刻はバッジの実寸ぶんだけ取り
+     （max-content。固定幅にすると曲名の省略が増える）、余りは曲名へ回す */
+  grid-template-columns: 22px max-content minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   column-gap: 8px;
   padding: 10px 14px;
@@ -2886,8 +2889,18 @@ body.has-sv-fullscreen .container { z-index: auto; }
   flex-shrink: 0;
 }
 
-.sv-song-info {
+/* 曲の頭の時刻。承認済みがあればそれ、無ければ自分のメモが入る */
+.sv-song-lead {
   grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.sv-song-info {
+  /* 2列目は開始時刻のバッジ。曲名は3列目に置く（同じセルに重ねない） */
+  grid-column: 3;
   grid-row: 1;
   min-width: 0;
   overflow: hidden;
@@ -2915,17 +2928,19 @@ body.has-sv-fullscreen .container { z-index: auto; }
 }
 
 .sv-song-actions {
-  grid-column: 3;
+  grid-column: 4;
   grid-row: 1;
   display: flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-  opacity: 0.4;
+  /* 自分用のメモは主役ではないので普段は控えめにし、行に触れたときだけ出す */
+  opacity: 0.25;
   transition: opacity 0.15s;
 }
 
-.sv-song:hover .sv-song-actions { opacity: 1; }
+.sv-song:hover .sv-song-actions,
+.sv-song:focus-within .sv-song-actions { opacity: 1; }
 
 /* Timestamp seek badge */
 .sv-ts-badge {
@@ -4815,9 +4830,42 @@ body.has-sv-fullscreen .container { z-index: auto; }
 
 /* ─── Community Timestamps (sv-cts-*) ─────────────────────────────────────── */
 
+/* 曲の頭の時刻。行の先頭に出す主役のバッジ */
+.sv-cts-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  color: var(--primary-strong);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.sv-cts-main:hover {
+  background: color-mix(in srgb, var(--primary) 26%, var(--surface));
+  border-color: var(--primary);
+}
+
+/* 時刻が未確定の曲。桁を揃えるためだけの控えめな表示 */
+.sv-cts-main.is-empty {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-mute);
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 承認済みと併記されるときの自分のメモ */
+.sv-ts-badge.is-memo { opacity: 0.75; font-weight: 500; }
+
 /* セットリスト行内のコミュニティタイムスタンプエリア */
 .sv-cts-row {
-  grid-column: 2 / 4;
+  grid-column: 2 / 5;
   grid-row: 2;
   display: flex;
   align-items: center;
@@ -4863,6 +4911,20 @@ body.has-sv-fullscreen .container { z-index: auto; }
 #stream-viewer.sv-fullscreen .sv-cts-badge:hover {
   background: rgba(96, 180, 220, 0.25);
   border-color: rgba(96, 180, 220, 0.6);
+}
+#stream-viewer.sv-fullscreen .sv-cts-main {
+  background: rgba(96, 180, 220, 0.15);
+  color: #7dd3fc;
+  border-color: rgba(96, 180, 220, 0.3);
+}
+#stream-viewer.sv-fullscreen .sv-cts-main:hover {
+  background: rgba(96, 180, 220, 0.25);
+  border-color: rgba(96, 180, 220, 0.6);
+}
+#stream-viewer.sv-fullscreen .sv-cts-main.is-empty {
+  background: transparent;
+  border-color: transparent;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* 提案ボタン */

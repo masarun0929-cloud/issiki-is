@@ -3,7 +3,7 @@ import { ensureSongTags, loadAll, loadInitial } from './data.js';
 import { buildIndex } from './search.js';
 import { initTheme, onThemeChange, cycleTheme } from './theme.js';
 import { onRerenderNeeded, destroyAllCharts } from './charts.js';
-import { $, $$, escapeHtml, fmtDate, streamKey, youtubeThumb, youtubeThumbHq, youtubeThumbTiny } from './utils.js';
+import { $, $$, escapeHtml, fmtDate, fmtTs, streamKey, youtubeThumb, youtubeThumbHq, youtubeThumbTiny, youtubeUrlAt } from './utils.js';
 import { DEFAULT_CHANNEL, SITE } from './config.js';
 import { readUrlState, writeUrlState } from './url-state.js';
 import { initSearchPalette, openSearchPalette, closeSearchPalette, isSearchPaletteOpen } from './views/search-palette.js';
@@ -527,13 +527,20 @@ function openSongDetail(key) {
   ensureSongTags(song);
 
   title.textContent = song.title;
-  const refs = (song.streamRefs || []).slice(0, 8).map(ref => ({
-    ...ref,
-    thumbnail: youtubeThumbHq(ref.url),
-    thumbnailFallback: youtubeThumb(ref.url),
-    thumbnailTiny: youtubeThumbTiny(ref.url),
-    detailKey: streamKey(ref),
-  }));
+  const refs = (song.streamRefs || []).slice(0, 8).map(ref => {
+    // その枠でこの曲が始まる秒数。streams.json に t として入っている
+    const startAt = (ref.songs || []).find(item => item.key === song.key)?.t ?? null;
+    return {
+      ...ref,
+      thumbnail: youtubeThumbHq(ref.url),
+      thumbnailFallback: youtubeThumb(ref.url),
+      thumbnailTiny: youtubeThumbTiny(ref.url),
+      detailKey: streamKey(ref),
+      startAt,
+      // 開始位置が分かっていればその地点から、無ければ頭から開く
+      watchUrl: youtubeUrlAt(ref.url, startAt),
+    };
+  });
   const tags = [
     song.genre,
     ...(song.seasonTags || []),
@@ -564,7 +571,7 @@ function openSongDetail(key) {
       ${refs.length ? refs.map(ref => `
         <div class="song-detail-stream">
           ${ref.thumbnail && ref.url
-            ? `<a class="song-detail-thumb-link" href="${escapeHtml(ref.url)}" target="_blank" rel="noopener" aria-label="YouTubeで開く"><img class="song-detail-thumb" src="${escapeHtml(ref.thumbnail)}" data-fallback="${escapeHtml(ref.thumbnailFallback)}" data-tiny="${escapeHtml(ref.thumbnailTiny)}" alt="" loading="lazy" referrerpolicy="no-referrer"></a>`
+            ? `<a class="song-detail-thumb-link" href="${escapeHtml(ref.watchUrl)}" target="_blank" rel="noopener" aria-label="${ref.startAt != null ? `この曲の位置（${fmtTs(ref.startAt)}）からYouTubeで開く` : 'YouTubeで開く'}"><img class="song-detail-thumb" src="${escapeHtml(ref.thumbnail)}" data-fallback="${escapeHtml(ref.thumbnailFallback)}" data-tiny="${escapeHtml(ref.thumbnailTiny)}" alt="" loading="lazy" referrerpolicy="no-referrer">${ref.startAt != null ? `<span class="song-detail-at">${escapeHtml(fmtTs(ref.startAt))}</span>` : ''}</a>`
             : '<div class="song-detail-thumb placeholder"></div>'}
           <button class="song-detail-frame" type="button" data-detail-action="stream" data-songkey="${escapeHtml(song.key)}" data-streamkey="${escapeHtml(ref.detailKey)}">
             <span>${fmtDate(ref.date)}</span>
