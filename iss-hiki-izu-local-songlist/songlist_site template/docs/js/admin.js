@@ -981,11 +981,139 @@ function initStreamEdit() {
   });
 }
 
+/* ─── タイムスタンプ反映（固定コメントを貼り付けて曲名で照合） ─────────────── */
+
+let _tspSetlist = null;   // { stream, songs[] }
+let _tspMatched = null;   // matchSetlist の結果
+
+async function initTimestampPaste() {
+  const channelSelect = $('#tsp-channel');
+  const streamSelect = $('#tsp-stream');
+  if (!channelSelect || !streamSelect) return;
+
+  const channels = Object.values(CHANNELS);
+  channelSelect.innerHTML = channels
+    .map((channel) => `<option value="${escapeHtml(channel.id)}">${escapeHtml(channel.label)}</option>`)
+    .join('');
+  channelSelect.value = CHANNELS[DEFAULT_CHANNEL] ? DEFAULT_CHANNEL : channels[0]?.id || '';
+
+  channelSelect.addEventListener('change', loadTimestampStreams);
+  streamSelect.addEventListener('change', () => {
+    _tspSetlist = null;
+    _tspMatched = null;
+    $('#tsp-save').disabled = true;
+    $('#tsp-preview-box').innerHTML = '';
+    $('#tsp-status').textContent = '';
+  });
+  $('#tsp-match').addEventListener('click', matchPastedTimestamps);
+  $('#tsp-save').addEventListener('click', savePastedTimestamps);
+
+  await loadTimestampStreams();
+}
+
+async function loadTimestampStreams() {
+  const select = $('#tsp-stream');
+  const channelCode = $('#tsp-channel').value;
+  select.innerHTML = '<option value="">読み込み中…</option>';
+  try {
+    const { streams } = await adminApi(`streams?channel=${encodeURIComponent(channelCode)}&limit=200`);
+    if (!streams?.length) {
+      select.innerHTML = '<option value="">歌枠がありません</option>';
+      return;
+    }
+    select.innerHTML = streams.map((s) => {
+      // 反映済みの枠が一目で分かるようにしておく
+      const mark = s.timestampCount > 0 ? `✓${s.timestampCount}` : '未';
+      return `<option value="${s.sourceIndex}">[${mark}] #${s.sourceIndex} ${escapeHtml(s.streamedOn)} ${escapeHtml(String(s.title).slice(0, 40))}</option>`;
+    }).join('');
+  } catch (err) {
+    select.innerHTML = '<option value="">取得に失敗しました</option>';
+    $('#tsp-status').textContent = `⚠️ ${err.message}`;
+  }
+}
+
+async function matchPastedTimestamps() {
+  const channelCode = $('#tsp-channel').value;
+  const streamIndex = Number($('#tsp-stream').value);
+  const comment = $('#tsp-comment').value;
+  const status = $('#tsp-status');
+  const saveBtn = $('#tsp-save');
+  saveBtn.disabled = true;
+
+  if (!streamIndex) { status.textContent = '⚠️ 歌枠を選んでください'; return; }
+  if (!comment.trim()) { status.textContent = '⚠️ 固定コメントを貼り付けてください'; return; }
+
+  status.textContent = '照合中…';
+  try {
+    const { matchSetlist, findInversions, formatSeconds } = await import('./admin/timestamp-matcher.js');
+    _tspSetlist = await adminApi(`streams/${encodeURIComponent(channelCode)}/${streamIndex}/setlist`);
+    _tspMatched = matchSetlist(_tspSetlist.songs, comment);
+
+    const matchedCount = _tspMatched.filter((m) => m.seconds != null).length;
+    const inversions = new Set(findInversions(_tspMatched).map((v) => v.index));
+
+    $('#tsp-preview-box').innerHTML = `
+      <table class="admin-table">
+        <thead><tr><th>#</th><th>曲名</th><th>アーティスト</th><th>現在</th><th>照合結果</th><th>方法</th></tr></thead>
+        <tbody>
+          ${_tspSetlist.songs.map((song, i) => {
+            const m = _tspMatched[i];
+            const changed = m.seconds != null && m.seconds !== song.currentSeconds;
+            const warn = inversions.has(i);
+            return `
+            <tr${warn ? ' style="background:var(--orange-bg);"' : ''}>
+              <td>${i + 1}</td>
+              <td>${escapeHtml(song.title)}</td>
+              <td>${escapeHtml(song.artist || '')}</td>
+              <td>${song.currentSeconds != null ? escapeHtml(formatSeconds(song.currentSeconds)) : '—'}</td>
+              <td><strong>${m.seconds != null ? escapeHtml(formatSeconds(m.seconds)) : '—'}</strong>${changed && song.currentSeconds != null ? ' <small>(変更)</small>' : ''}</td>
+              <td>${warn ? '⚠️ 時刻が前後している' : escapeHtml(m.how || '未割当')}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+
+    const warnText = inversions.size ? `　⚠️ 時刻の逆転 ${inversions.size}件（コメントの誤記か照合ミスの可能性）` : '';
+    status.textContent = `照合: ${matchedCount} / ${_tspSetlist.songs.length}曲${warnText}`;
+    saveBtn.disabled = matchedCount === 0;
+  } catch (err) {
+    status.textContent = `⚠️ ${err.message}`;
+    $('#tsp-preview-box').innerHTML = '';
+  }
+}
+
+async function savePastedTimestamps() {
+  if (!_tspSetlist || !_tspMatched) return;
+  const status = $('#tsp-status');
+  const saveBtn = $('#tsp-save');
+  const items = _tspMatched
+    .map((m, i) => (m.seconds == null ? null : { songIndex: i, timeSeconds: m.seconds, note: m.how || '管理画面' }))
+    .filter(Boolean);
+
+  if (!confirm(`この歌枠の開始時刻を ${items.length}件で置き換えます。よろしいですか？`)) return;
+
+  saveBtn.disabled = true;
+  status.textContent = '保存中…';
+  try {
+    const res = await adminApi('timestamps/bulk', {
+      channelCode: _tspSetlist.stream.channelCode,
+      streamIndex: _tspSetlist.stream.sourceIndex,
+      items,
+    });
+    status.textContent = `✅ ${res.saved}件を保存しました。公開サイトへ反映するには「静的データ生成」を実行してください。`;
+    await loadTimestampStreams();
+  } catch (err) {
+    status.textContent = `⚠️ ${err.message}`;
+    saveBtn.disabled = false;
+  }
+}
+
 /* ─── 起動 ───────────────────────────────────────────────────────────────── */
 
 $('#refresh-status').addEventListener('click', loadStatus);
 initManagement();
 loadStatus();
 initTimestamps();
+initTimestampPaste();
 initMusicVideos();
 initStreamEdit();

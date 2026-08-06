@@ -82,6 +82,28 @@
 
   <section class="admin-panel">
     <div class="section-header">
+      <h2>タイムスタンプ反映</h2>
+      <span class="badge accent">D1更新</span>
+    </div>
+    <p class="admin-note">
+      YouTubeの固定コメント（セトリ＆タイムスタンプ）をそのまま貼り付けると、曲名で照合して開始時刻を割り当てます。
+      「照合する」で結果を確認してから保存してください。
+    </p>
+    <div class="admin-form-grid">
+      <label>チャンネル<select id="tsp-channel"></select></label>
+      <label>歌枠<select id="tsp-stream"></select></label>
+    </div>
+    <label class="admin-field-full">固定コメントを貼り付け<textarea id="tsp-comment" rows="10" placeholder="セトリ＆タイムスタンプ&#10;21:47 1. 曲名 / アーティスト&#10;26:12 2. 曲名 / アーティスト"></textarea></label>
+    <div class="admin-actions">
+      <button class="btn ghost" id="tsp-match" type="button">照合する</button>
+      <button class="btn primary" id="tsp-save" type="button" disabled>D1に保存</button>
+    </div>
+    <p class="admin-note" id="tsp-status"></p>
+    <div id="tsp-preview-box"></div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="section-header">
       <h2>キー・ジャンル管理</h2>
       <span class="badge" id="meta-badge">待機中</span>
     </div>

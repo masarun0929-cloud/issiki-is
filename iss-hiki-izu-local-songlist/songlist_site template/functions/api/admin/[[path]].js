@@ -595,6 +595,142 @@ async function deleteSongRequest(env, id) {
   return { ok: true, id };
 }
 
+// ─── 曲ごとの開始時刻（community_timestamps） ──────────────────────────────
+
+async function ensureTimestampsSchema(env) {
+  await execute(env, `
+    CREATE TABLE IF NOT EXISTS community_timestamps (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      channel_code    TEXT    NOT NULL,
+      stream_index    INTEGER NOT NULL,
+      song_index      INTEGER NOT NULL,
+      time_seconds    INTEGER NOT NULL,
+      status          TEXT    NOT NULL DEFAULT 'pending',
+      submitter_note  TEXT,
+      created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+      reviewed_at     TEXT,
+      reviewer_note   TEXT
+    )
+  `);
+  await execute(env, 'CREATE INDEX IF NOT EXISTS idx_ct_lookup ON community_timestamps (channel_code, stream_index, status)');
+  await execute(env, 'CREATE INDEX IF NOT EXISTS idx_ct_status_created ON community_timestamps (status, created_at DESC)');
+}
+
+/** 歌枠の一覧（新しい順）。タイムスタンプの入力状況も返す */
+async function listStreams(env, request) {
+  await ensureTimestampsSchema(env);
+  const url = new URL(request.url);
+  const channelCode = normalize(url.searchParams.get('channel') || '');
+  const limit = Math.max(1, Math.min(300, Number(url.searchParams.get('limit')) || 120));
+  const params = [];
+  let where = '';
+  if (channelCode) { where = 'WHERE c.code = ?'; params.push(channelCode); }
+  params.push(limit);
+  const rows = await select(env, `
+    SELECT s.source_index AS source_index, s.streamed_on, s.title, s.url, s.song_count, c.code AS channel_code,
+           (SELECT COUNT(*) FROM community_timestamps t
+             WHERE t.channel_code = c.code AND t.stream_index = s.source_index AND t.status = 'approved') AS ts_count
+    FROM streams s
+    JOIN channels c ON c.id = s.channel_id
+    ${where}
+    ORDER BY s.streamed_on DESC, s.source_index DESC
+    LIMIT ?
+  `, params);
+  return {
+    streams: rows.map((row) => ({
+      channelCode: row.channel_code,
+      sourceIndex: row.source_index || 0,
+      streamedOn: row.streamed_on,
+      title: row.title || '',
+      url: row.url || '',
+      songCount: row.song_count || 0,
+      timestampCount: row.ts_count || 0,
+    })),
+  };
+}
+
+/** 1つの歌枠のセットリスト（position 昇順）と、登録済みの開始時刻 */
+async function getStreamSetlist(env, channelCode, sourceIndex) {
+  await ensureTimestampsSchema(env);
+  const stream = await selectOne(env, `
+    SELECT s.id, s.source_index, s.streamed_on, s.title, s.url
+    FROM streams s JOIN channels c ON c.id = s.channel_id
+    WHERE c.code = ? AND s.source_index = ?
+  `, [channelCode, sourceIndex]);
+  if (!stream) {
+    const error = new Error('歌枠が見つかりません');
+    error.status = 404;
+    throw error;
+  }
+  const rows = await select(env, `
+    SELECT ss.position, ss.title_snapshot, ss.artist_snapshot, ss.song_key_snapshot,
+           sg.title AS song_title, a.name AS artist_name
+    FROM stream_songs ss
+    LEFT JOIN songs sg ON sg.id = ss.song_id
+    LEFT JOIN artists a ON a.id = sg.artist_id
+    WHERE ss.stream_id = ?
+    ORDER BY ss.position ASC, ss.id ASC
+  `, [stream.id]);
+  const existing = await select(env, `
+    SELECT song_index, time_seconds FROM community_timestamps
+    WHERE channel_code = ? AND stream_index = ? AND status = 'approved'
+    ORDER BY song_index ASC
+  `, [channelCode, sourceIndex]);
+  const byIndex = new Map(existing.map((row) => [row.song_index, row.time_seconds]));
+
+  return {
+    stream: {
+      channelCode,
+      sourceIndex: stream.source_index || 0,
+      streamedOn: stream.streamed_on,
+      title: stream.title || '',
+      url: stream.url || '',
+    },
+    // songIndex は position 昇順の 0 始まり。静的データ生成と同じ規則にする
+    songs: rows.map((row, index) => ({
+      songIndex: index,
+      title: normalize(row.song_title || row.title_snapshot),
+      artist: normalize(row.artist_name || row.artist_snapshot),
+      key: row.song_key_snapshot,
+      currentSeconds: byIndex.has(index) ? byIndex.get(index) : null,
+    })),
+  };
+}
+
+/** 1つの歌枠の承認済み時刻をまとめて置き換える。ユーザー投稿(pending)は消さない */
+async function saveTimestamps(env, input) {
+  await ensureTimestampsSchema(env);
+  const channelCode = normalize(input.channelCode);
+  const streamIndex = Number(input.streamIndex);
+  if (!channelCode) throw new Error('チャンネルを指定してください');
+  if (!Number.isInteger(streamIndex) || streamIndex <= 0) throw new Error('枠番号が不正です');
+
+  const items = Array.isArray(input.items) ? input.items : [];
+  const cleaned = [];
+  for (const item of items) {
+    const songIndex = Number(item.songIndex);
+    const seconds = Number(item.timeSeconds);
+    if (!Number.isInteger(songIndex) || songIndex < 0) continue;
+    if (!Number.isFinite(seconds) || seconds < 0) continue;
+    cleaned.push({ songIndex, seconds: Math.floor(seconds), note: normalize(item.note || '').slice(0, 40) });
+  }
+
+  await execute(env, `
+    DELETE FROM community_timestamps
+    WHERE channel_code = ? AND stream_index = ? AND status = 'approved'
+  `, [channelCode, streamIndex]);
+
+  const reviewedAt = new Date().toISOString();
+  for (const item of cleaned) {
+    await execute(env, `
+      INSERT INTO community_timestamps
+        (channel_code, stream_index, song_index, time_seconds, status, reviewed_at, reviewer_note)
+      VALUES (?, ?, ?, ?, 'approved', ?, ?)
+    `, [channelCode, streamIndex, item.songIndex, item.seconds, reviewedAt, item.note || '管理画面']);
+  }
+  return { ok: true, channelCode, streamIndex, saved: cleaned.length };
+}
+
 async function route(request, env, path) {
   if (!env.DB) throw new Error('D1 binding DB is missing');
   if (request.method === 'GET' && path === 'health') return { ok: true };
@@ -608,6 +744,12 @@ async function route(request, env, path) {
     const url = new URL(request.url);
     return { songs: await searchSongs(env, { q: url.searchParams.get('q') || '' }) };
   }
+  if (request.method === 'GET' && path === 'streams') return listStreams(env, request);
+  const setlistMatch = path.match(/^streams\/([^/]+)\/(\d+)\/setlist$/);
+  if (request.method === 'GET' && setlistMatch) {
+    return getStreamSetlist(env, decodeURIComponent(setlistMatch[1]), Number(setlistMatch[2]));
+  }
+  if (request.method === 'POST' && path === 'timestamps/bulk') return saveTimestamps(env, await readJson(request));
   if (request.method === 'POST' && path === 'preview-stream') return { songs: await previewStream(env, await readJson(request)) };
   if (request.method === 'POST' && path === 'streams') return addStream(env, await readJson(request));
   if (request.method === 'POST' && path === 'live-events') return addLiveEvent(env, await readJson(request));
