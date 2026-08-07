@@ -911,21 +911,24 @@ button.official-link {
   }
 }
 
-/* プレイリストタブ / ビューワー表示中: サイドバーを非表示にして全幅使用 */
+/* プレイリストタブ / ビューワーを大きく開いている間: サイドバーを非表示にして全幅使用。
+   ミニプレイヤー(.has-sv-mini)と音楽バー(.has-sv-music)は #stream-viewer を
+   hidden にしないまま小さく表示し続けるので、ここでは対象外にする
+   （再生中もメニューを使えるようにするため）。 */
 @media (min-width: 1021px) {
   body[data-active-tab="playlists"],
-  body:has(#stream-viewer:not([hidden])) {
+  body:has(#stream-viewer:not([hidden])):not(.has-sv-mini):not(.has-sv-music) {
     --db-sidebar-current: 0px;
     padding-left: 0 !important;
   }
 
   body[data-active-tab="playlists"] .tabs,
-  body:has(#stream-viewer:not([hidden])) .tabs {
+  body:has(#stream-viewer:not([hidden])):not(.has-sv-mini):not(.has-sv-music) .tabs {
     display: none;
   }
 
   body[data-active-tab="playlists"] .topbar,
-  body:has(#stream-viewer:not([hidden])) .topbar {
+  body:has(#stream-viewer:not([hidden])):not(.has-sv-mini):not(.has-sv-music) .topbar {
     left: 0 !important;
     width: 100% !important;
   }

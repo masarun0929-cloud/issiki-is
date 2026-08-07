@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const ASSET_CACHE = `isshiki-izu-assets-${CACHE_VERSION}`;
 const DATA_CACHE  = `isshiki-izu-data-${CACHE_VERSION}`;
 
