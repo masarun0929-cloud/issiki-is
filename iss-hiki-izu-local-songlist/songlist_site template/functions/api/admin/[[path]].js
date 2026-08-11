@@ -627,7 +627,7 @@ async function listStreams(env, request) {
   if (channelCode) { where = 'WHERE c.code = ?'; params.push(channelCode); }
   params.push(limit);
   const rows = await select(env, `
-    SELECT s.source_index AS source_index, s.streamed_on, s.title, s.url, s.song_count, c.code AS channel_code,
+    SELECT s.id, s.source_index AS source_index, s.streamed_on, s.title, s.url, s.song_count, c.code AS channel_code,
            (SELECT COUNT(*) FROM community_timestamps t
              WHERE t.channel_code = c.code AND t.stream_index = s.source_index AND t.status = 'approved') AS ts_count
     FROM streams s
@@ -638,6 +638,7 @@ async function listStreams(env, request) {
   `, params);
   return {
     streams: rows.map((row) => ({
+      id: row.id,
       channelCode: row.channel_code,
       sourceIndex: row.source_index || 0,
       streamedOn: row.streamed_on,
@@ -697,6 +698,176 @@ async function getStreamSetlist(env, channelCode, sourceIndex) {
   };
 }
 
+// ─── 歌枠の編集・削除 ─────────────────────────────────────────────────────
+
+/** 編集対象の歌枠と、テキストエリア用のセトリ文字列を返す */
+async function getStreamForEdit(env, streamId) {
+  const stream = await selectOne(env, `
+    SELECT s.id, s.source_index, s.streamed_on, s.title, s.url, s.song_count, c.code AS channel_code
+    FROM streams s JOIN channels c ON c.id = s.channel_id
+    WHERE s.id = ?
+  `, [streamId]);
+  if (!stream) {
+    const error = new Error('歌枠が見つかりません');
+    error.status = 404;
+    throw error;
+  }
+  const rows = await select(env, `
+    SELECT position, raw_text, title_snapshot, artist_snapshot
+    FROM stream_songs WHERE stream_id = ?
+    ORDER BY position ASC, id ASC
+  `, [streamId]);
+  // 登録時の生テキストがあればそれを使う（キーやジャンルの指定を保つため）
+  const songsText = rows
+    .map((row) => row.raw_text || [row.title_snapshot, row.artist_snapshot].filter(Boolean).join(' / '))
+    .join('\n');
+  return {
+    stream: {
+      id: stream.id,
+      channelCode: stream.channel_code,
+      sourceIndex: stream.source_index,
+      streamedOn: stream.streamed_on,
+      title: stream.title || '',
+      url: stream.url || '',
+      songCount: stream.song_count || 0,
+    },
+    songsText,
+  };
+}
+
+/** 配信日・タイトル・URL・枠番号を更新する */
+async function updateStreamInfo(env, streamId, input) {
+  const current = await selectOne(env, `
+    SELECT s.id, s.source_index, s.streamed_on, s.channel_id, c.code AS channel_code
+    FROM streams s JOIN channels c ON c.id = s.channel_id
+    WHERE s.id = ?
+  `, [streamId]);
+  if (!current) {
+    const error = new Error('歌枠が見つかりません');
+    error.status = 404;
+    throw error;
+  }
+
+  const streamedOn = normalize(input.streamedOn);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(streamedOn)) throw new Error('配信日は YYYY-MM-DD で入力してください');
+  const title = normalize(input.title);
+  const url = normalize(input.url);
+  const sourceIndex = input.sourceIndex == null || input.sourceIndex === ''
+    ? current.source_index
+    : Number(input.sourceIndex);
+  if (!Number.isInteger(sourceIndex) || sourceIndex <= 0) throw new Error('枠番号は1以上の整数で入力してください');
+
+  if (sourceIndex !== current.source_index) {
+    const clash = await selectOne(env, 'SELECT id FROM streams WHERE channel_id = ? AND source_index = ? AND id <> ?', [
+      current.channel_id, sourceIndex, streamId,
+    ]);
+    if (clash) throw new Error(`枠番号 ${sourceIndex} は既に使われています`);
+  }
+
+  // url_key は「同じ配信の重複登録」を判定するキー。情報を変えたら合わせて作り直す
+  const urlKey = url || `${current.channel_code}:${streamedOn}:${title}`;
+  await execute(env, 'UPDATE streams SET streamed_on = ?, title = ?, url = ?, source_index = ?, url_key = ? WHERE id = ?', [
+    streamedOn, title, url, sourceIndex, urlKey, streamId,
+  ]);
+
+  // 枠番号を変えるとタイムスタンプの紐付け先がずれるので一緒に移す
+  if (sourceIndex !== current.source_index) {
+    await ensureTimestampsSchema(env);
+    await execute(env, 'UPDATE community_timestamps SET stream_index = ? WHERE channel_code = ? AND stream_index = ?', [
+      sourceIndex, current.channel_code, current.source_index,
+    ]);
+  }
+  return { ok: true, id: streamId, sourceIndex, movedTimestamps: sourceIndex !== current.source_index };
+}
+
+/** セットリストを丸ごと置き換える（曲順の入れ替え・追加・削除） */
+async function replaceSetlist(env, streamId, input) {
+  const stream = await selectOne(env, `
+    SELECT s.id, s.channel_id, s.source_index, c.code AS channel_code
+    FROM streams s JOIN channels c ON c.id = s.channel_id
+    WHERE s.id = ?
+  `, [streamId]);
+  if (!stream) {
+    const error = new Error('歌枠が見つかりません');
+    error.status = 404;
+    throw error;
+  }
+  const lines = String(input.songsText || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) throw new Error('曲リストが空です');
+
+  const now = todayIso();
+  // 旧セトリぶんの歌唱回数を戻してから入れ直す（addStream の再登録と同じ手順）
+  const oldRows = await select(env, 'SELECT song_id FROM stream_songs WHERE stream_id = ? AND song_id IS NOT NULL', [streamId]);
+  for (const row of oldRows) {
+    await execute(env, `
+      UPDATE song_channel_stats
+      SET sing_count = CASE WHEN sing_count > 0 THEN sing_count - 1 ELSE 0 END, updated_at = ?
+      WHERE song_id = ? AND channel_id = ?
+    `, [now, row.song_id, stream.channel_id]);
+  }
+  await execute(env, 'DELETE FROM stream_songs WHERE stream_id = ?', [streamId]);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const parsed = splitSongLine(lines[index]);
+    const song = await upsertSong(env, parsed.title, parsed.artist, parsed);
+    await execute(env, `
+      INSERT INTO stream_songs (stream_id, song_id, position, raw_text, title_snapshot, artist_snapshot, song_key_snapshot, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [streamId, song.id, index + 1, parsed.raw, parsed.title, parsed.artist, song.key, now]);
+    await execute(env, `
+      INSERT INTO song_channel_stats (song_id, channel_id, sing_count, source_index, created_at, updated_at)
+      VALUES (?, ?, 1, NULL, ?, ?)
+      ON CONFLICT(song_id, channel_id) DO UPDATE SET
+        sing_count = sing_count + 1, updated_at = excluded.updated_at
+    `, [song.id, stream.channel_id, now, now]);
+  }
+  await execute(env, 'UPDATE streams SET song_count = ? WHERE id = ?', [lines.length, streamId]);
+
+  // 曲順が変わると開始時刻の songIndex がずれるので、この枠の時刻は破棄する
+  await ensureTimestampsSchema(env);
+  const dropped = await select(env, `
+    SELECT COUNT(*) AS n FROM community_timestamps
+    WHERE channel_code = ? AND stream_index = ? AND status = 'approved'
+  `, [stream.channel_code, stream.source_index]);
+  await execute(env, `
+    DELETE FROM community_timestamps
+    WHERE channel_code = ? AND stream_index = ? AND status = 'approved'
+  `, [stream.channel_code, stream.source_index]);
+
+  return { ok: true, id: streamId, songCount: lines.length, droppedTimestamps: dropped[0]?.n || 0 };
+}
+
+/** 歌枠を削除する。歌唱回数を戻し、この枠の開始時刻も消す */
+async function deleteStream(env, streamId) {
+  const stream = await selectOne(env, `
+    SELECT s.id, s.channel_id, s.source_index, s.title, c.code AS channel_code
+    FROM streams s JOIN channels c ON c.id = s.channel_id
+    WHERE s.id = ?
+  `, [streamId]);
+  if (!stream) {
+    const error = new Error('歌枠が見つかりません');
+    error.status = 404;
+    throw error;
+  }
+  const now = todayIso();
+  const rows = await select(env, 'SELECT song_id FROM stream_songs WHERE stream_id = ? AND song_id IS NOT NULL', [streamId]);
+  for (const row of rows) {
+    await execute(env, `
+      UPDATE song_channel_stats
+      SET sing_count = CASE WHEN sing_count > 0 THEN sing_count - 1 ELSE 0 END, updated_at = ?
+      WHERE song_id = ? AND channel_id = ?
+    `, [now, row.song_id, stream.channel_id]);
+  }
+  await execute(env, 'DELETE FROM stream_songs WHERE stream_id = ?', [streamId]);
+  await execute(env, 'DELETE FROM streams WHERE id = ?', [streamId]);
+
+  await ensureTimestampsSchema(env);
+  await execute(env, 'DELETE FROM community_timestamps WHERE channel_code = ? AND stream_index = ?', [
+    stream.channel_code, stream.source_index,
+  ]);
+  return { ok: true, id: streamId, title: stream.title || '', removedSongs: rows.length };
+}
+
 /** 1つの歌枠の承認済み時刻をまとめて置き換える。ユーザー投稿(pending)は消さない */
 async function saveTimestamps(env, input) {
   await ensureTimestampsSchema(env);
@@ -750,6 +921,15 @@ async function route(request, env, path) {
     return getStreamSetlist(env, decodeURIComponent(setlistMatch[1]), Number(setlistMatch[2]));
   }
   if (request.method === 'POST' && path === 'timestamps/bulk') return saveTimestamps(env, await readJson(request));
+  // 歌枠の編集・削除（:id は数値。上の :channelCode/:index/setlist とは形が違うので衝突しない）
+  const streamSongsMatch = path.match(/^streams\/(\d+)\/songs$/);
+  if (request.method === 'GET' && streamSongsMatch) return getStreamForEdit(env, Number(streamSongsMatch[1]));
+  const streamSetlistMatch = path.match(/^streams\/(\d+)\/setlist$/);
+  if (request.method === 'POST' && streamSetlistMatch) return replaceSetlist(env, Number(streamSetlistMatch[1]), await readJson(request));
+  const streamDeleteMatch = path.match(/^streams\/(\d+)\/delete$/);
+  if (request.method === 'POST' && streamDeleteMatch) return deleteStream(env, Number(streamDeleteMatch[1]));
+  const streamUpdateMatch = path.match(/^streams\/(\d+)$/);
+  if (request.method === 'POST' && streamUpdateMatch) return updateStreamInfo(env, Number(streamUpdateMatch[1]), await readJson(request));
   if (request.method === 'POST' && path === 'preview-stream') return { songs: await previewStream(env, await readJson(request)) };
   if (request.method === 'POST' && path === 'streams') return addStream(env, await readJson(request));
   if (request.method === 'POST' && path === 'live-events') return addLiveEvent(env, await readJson(request));

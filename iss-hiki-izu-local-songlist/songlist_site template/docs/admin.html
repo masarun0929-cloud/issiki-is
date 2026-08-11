@@ -82,6 +82,58 @@
 
   <section class="admin-panel">
     <div class="section-header">
+      <h2>歌枠の編集・削除</h2>
+      <span class="badge" id="stream-edit-badge">選択中なし</span>
+    </div>
+    <p class="admin-note">
+      登録済みの歌枠の配信日・タイトル・URL・枠番号を直したり、セトリの曲順を入れ替え・追加・削除できます。
+      歌枠ごと削除することもできます。
+    </p>
+    <div class="admin-form-grid">
+      <label>チャンネル<select id="edit-channel"></select></label>
+    </div>
+    <div class="admin-actions">
+      <button class="btn ghost" id="load-streams-btn" type="button">歌枠を読み込む</button>
+    </div>
+    <p class="admin-note" id="stream-edit-status"></p>
+    <div id="stream-list-wrap"></div>
+
+    <div id="stream-edit-form" style="display:none">
+      <div class="section-header" style="margin-top:18px">
+        <h3 id="stream-edit-heading">歌枠情報</h3>
+      </div>
+      <div class="admin-form-grid">
+        <label>配信日<input id="edit-streamed-on" type="date"></label>
+        <label>枠番号<input id="edit-source-index" type="number" min="1"></label>
+        <label>配信タイトル<input id="edit-stream-title" type="text"></label>
+        <label>URL<input id="edit-stream-url" type="url" placeholder="https://..."></label>
+      </div>
+      <div class="admin-actions">
+        <button class="btn primary" id="save-stream-info-btn" type="button">歌枠情報を保存</button>
+        <button class="btn ghost" id="delete-stream-btn" type="button">この歌枠を削除</button>
+      </div>
+      <p class="admin-note" id="stream-info-status"></p>
+
+      <div class="section-header" style="margin-top:18px">
+        <h3>セットリスト</h3>
+      </div>
+      <p class="admin-note">
+        1行が1曲です（<code>曲名 / アーティスト</code>、キーやジャンルを足す場合は <code>曲名 / アーティスト | +2 | アニソン</code>）。
+        ↑↓で並び替え、×で削除、下のボタンで追加できます。
+      </p>
+      <div id="edit-setlist-wrap"></div>
+      <div class="admin-actions">
+        <button class="btn ghost" id="add-song-row-btn" type="button">曲を追加</button>
+        <button class="btn ghost" id="preview-edit-stream-btn" type="button">照合を確認</button>
+        <button class="btn primary" id="save-setlist-btn" type="button">セトリを保存</button>
+      </div>
+      <p class="admin-note" id="setlist-status"></p>
+      <div id="edit-preview-box"></div>
+    </div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="section-header">
       <h2>タイムスタンプ反映</h2>
       <span class="badge accent">D1更新</span>
     </div>

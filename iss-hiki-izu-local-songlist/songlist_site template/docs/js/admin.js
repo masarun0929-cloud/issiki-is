@@ -831,20 +831,11 @@ function initMusicVideos() {
   });
 }
 
-/* ─── 歌枠・セトリ編集 ────────────────────────────────────────────────────── */
+/* ─── 歌枠の編集・削除 ────────────────────────────────────────────────────── */
 
 let _editStreamId = null;
-
-function _streamListRow(stream) {
-  const label = stream.title || `第${stream.source_index ?? stream.id}枠`;
-  return `
-    <tr data-stream-id="${stream.id}" style="cursor:pointer" class="stream-list-row">
-      <td>${escapeHtml(stream.streamed_on)}</td>
-      <td>${escapeHtml(label)}</td>
-      <td>${stream.song_count}</td>
-      <td><button class="btn ghost" data-edit-stream="${stream.id}" type="button" style="padding:4px 10px;font-size:12px">編集</button></td>
-    </tr>`;
-}
+let _editStreamMeta = null;   // 一覧から選んだ歌枠の情報
+let _editSongLines = [];      // セトリ1行 = 「曲名 / アーティスト | キー | ジャンル」
 
 function _renderStreamList(streams) {
   const wrap = $('#stream-list-wrap');
@@ -855,8 +846,18 @@ function _renderStreamList(streams) {
   wrap.innerHTML = `
     <div class="admin-table-wrap">
       <table class="admin-table">
-        <thead><tr><th>配信日</th><th>タイトル</th><th>曲数</th><th></th></tr></thead>
-        <tbody>${streams.map(_streamListRow).join('')}</tbody>
+        <thead><tr><th>枠</th><th>配信日</th><th>タイトル</th><th>曲数</th><th>時刻</th><th></th></tr></thead>
+        <tbody>
+          ${streams.map((s) => `
+            <tr>
+              <td>#${s.sourceIndex}</td>
+              <td>${escapeHtml(s.streamedOn)}</td>
+              <td>${escapeHtml(s.title || `第${s.sourceIndex}枠`)}</td>
+              <td>${s.songCount}</td>
+              <td>${s.timestampCount > 0 ? `✓${s.timestampCount}` : '—'}</td>
+              <td><button class="btn ghost" data-edit-stream="${s.id}" type="button" style="padding:4px 10px;font-size:12px">編集</button></td>
+            </tr>`).join('')}
+        </tbody>
       </table>
     </div>`;
 
@@ -865,26 +866,94 @@ function _renderStreamList(streams) {
   });
 }
 
+/** セトリを行単位で描画する。並び替え・削除・追加はこの配列を書き換えて再描画する */
+function _renderSetlistRows() {
+  const wrap = $('#edit-setlist-wrap');
+  if (!wrap) return;
+  if (!_editSongLines.length) {
+    wrap.innerHTML = '<p class="admin-note">曲がありません。「曲を追加」から追加してください。</p>';
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="admin-table-wrap">
+      <table class="admin-table setlist-edit-table">
+        <thead><tr><th style="width:3em">#</th><th>曲名 / アーティスト</th><th style="width:9em">並び替え</th><th style="width:4em"></th></tr></thead>
+        <tbody>
+          ${_editSongLines.map((line, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td><input class="text-input" data-song-line="${i}" type="text" value="${escapeHtml(line)}" style="width:100%"></td>
+              <td>
+                <button class="btn ghost" data-song-up="${i}" type="button" ${i === 0 ? 'disabled' : ''} title="上へ" style="padding:2px 8px">↑</button>
+                <button class="btn ghost" data-song-down="${i}" type="button" ${i === _editSongLines.length - 1 ? 'disabled' : ''} title="下へ" style="padding:2px 8px">↓</button>
+              </td>
+              <td><button class="btn ghost" data-song-del="${i}" type="button" title="この曲を削除" style="padding:2px 8px">×</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  wrap.querySelectorAll('[data-song-line]').forEach((input) => {
+    input.addEventListener('input', () => { _editSongLines[Number(input.dataset.songLine)] = input.value; });
+  });
+  wrap.querySelectorAll('[data-song-up]').forEach((btn) => {
+    btn.addEventListener('click', () => _moveSong(Number(btn.dataset.songUp), -1));
+  });
+  wrap.querySelectorAll('[data-song-down]').forEach((btn) => {
+    btn.addEventListener('click', () => _moveSong(Number(btn.dataset.songDown), 1));
+  });
+  wrap.querySelectorAll('[data-song-del]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const i = Number(btn.dataset.songDel);
+      _editSongLines.splice(i, 1);
+      _renderSetlistRows();
+      $('#setlist-status').textContent = '削除しました（「セトリを保存」で確定します）';
+    });
+  });
+}
+
+function _moveSong(index, delta) {
+  const next = index + delta;
+  if (next < 0 || next >= _editSongLines.length) return;
+  const [row] = _editSongLines.splice(index, 1);
+  _editSongLines.splice(next, 0, row);
+  _renderSetlistRows();
+  $('#setlist-status').textContent = '並び替えました（「セトリを保存」で確定します）';
+}
+
 async function _loadStreamForEdit(streamId) {
   $('#stream-edit-status').textContent = '読み込み中…';
   try {
     const data = await adminApi(`streams/${streamId}/songs`);
     const s = data.stream;
     _editStreamId = streamId;
+    _editStreamMeta = s;
+    _editSongLines = String(data.songsText || '').split(/\r?\n/).filter((line) => line.trim());
 
-    $('#edit-streamed-on').value = s.streamed_on || '';
-    $('#edit-source-index').value = s.source_index != null ? s.source_index : '';
+    $('#edit-streamed-on').value = s.streamedOn || '';
+    $('#edit-source-index').value = s.sourceIndex != null ? s.sourceIndex : '';
     $('#edit-stream-title').value = s.title || '';
     $('#edit-stream-url').value = s.url || '';
-    $('#edit-songs-text').value = data.songsText || '';
-    $('#edit-preview-box').innerHTML = '';
+    $('#stream-edit-heading').textContent = `#${s.sourceIndex} ${s.streamedOn} ${s.title || ''}`;
+    $('#stream-edit-form').style.display = '';
+    $('#stream-edit-badge').textContent = `編集中: #${s.sourceIndex}`;
     $('#stream-info-status').textContent = '';
     $('#setlist-status').textContent = '';
-    $('#stream-edit-heading').textContent = `歌枠情報 — ${s.streamed_on} ${s.title || ''}`;
-    $('#stream-edit-form').style.display = '';
-    $('#stream-edit-badge').textContent = `編集中: #${streamId}`;
     $('#stream-edit-status').textContent = '';
+    _renderSetlistRows();
     $('#stream-edit-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    $('#stream-edit-status').textContent = `エラー: ${err.message || err}`;
+  }
+}
+
+async function _reloadStreamList() {
+  const channelCode = $('#edit-channel').value;
+  $('#stream-edit-status').textContent = '読み込み中…';
+  try {
+    const data = await adminApi(`streams?channel=${encodeURIComponent(channelCode)}&limit=300`);
+    _renderStreamList(data.streams || []);
+    $('#stream-edit-status').textContent = `${(data.streams || []).length}件`;
   } catch (err) {
     $('#stream-edit-status').textContent = `エラー: ${err.message || err}`;
   }
@@ -894,69 +963,70 @@ function initStreamEdit() {
   const editChannel = $('#edit-channel');
   if (!editChannel) return;
   const channels = Object.values(CHANNELS);
-  editChannel.innerHTML = channels.map((ch) =>
-    `<option value="${escapeHtml(ch.id)}">${escapeHtml(ch.label)}</option>`
-  ).join('');
+  editChannel.innerHTML = channels
+    .map((ch) => `<option value="${escapeHtml(ch.id)}">${escapeHtml(ch.label)}</option>`)
+    .join('');
   editChannel.value = CHANNELS[DEFAULT_CHANNEL] ? DEFAULT_CHANNEL : channels[0]?.id || '';
 
-  $('#load-streams-btn')?.addEventListener('click', async () => {
-    $('#stream-edit-status').textContent = '読み込み中…';
-    $('#stream-list-wrap').innerHTML = '';
-    $('#stream-edit-form').style.display = 'none';
+  const resetForm = () => {
     _editStreamId = null;
+    _editStreamMeta = null;
+    _editSongLines = [];
+    $('#stream-edit-form').style.display = 'none';
     $('#stream-edit-badge').textContent = '選択中なし';
-    try {
-      const data = await adminApi(`streams?channelCode=${encodeURIComponent(editChannel.value)}`);
-      _renderStreamList(data.streams || []);
-      $('#stream-edit-status').textContent = `${(data.streams || []).length}件`;
-    } catch (err) {
-      $('#stream-edit-status').textContent = `エラー: ${err.message || err}`;
-    }
-  });
+  };
 
+  editChannel.addEventListener('change', () => { resetForm(); _reloadStreamList(); });
+  $('#load-streams-btn')?.addEventListener('click', () => { resetForm(); _reloadStreamList(); });
+
+  // 歌枠情報（配信日・タイトル・URL・枠番号）
   $('#save-stream-info-btn')?.addEventListener('click', async () => {
     if (!_editStreamId) return;
     if (!confirm('歌枠情報を更新します。よろしいですか？')) return;
     $('#stream-info-status').textContent = '保存中…';
     try {
-      await adminApi(`streams/${_editStreamId}`, {
+      const res = await adminApi(`streams/${_editStreamId}`, {
         title: $('#edit-stream-title').value,
         url: $('#edit-stream-url').value,
         streamedOn: $('#edit-streamed-on').value,
         sourceIndex: $('#edit-source-index').value || null,
       });
-      $('#stream-info-status').textContent = '歌枠情報を保存しました。必要なら静的データ生成を実行してください。';
+      const moved = res.movedTimestamps ? '（開始時刻の紐付けも移動しました）' : '';
+      $('#stream-info-status').textContent = `保存しました${moved}。公開サイトへ反映するには「静的データ生成」を実行してください。`;
+      await _reloadStreamList();
     } catch (err) {
       $('#stream-info-status').textContent = `エラー: ${err.message || err}`;
     }
   });
 
+  // セトリの行操作
+  $('#add-song-row-btn')?.addEventListener('click', () => {
+    if (!_editStreamId) return;
+    _editSongLines.push('');
+    _renderSetlistRows();
+    const inputs = document.querySelectorAll('[data-song-line]');
+    inputs[inputs.length - 1]?.focus();
+  });
+
   $('#preview-edit-stream-btn')?.addEventListener('click', async () => {
-    $('#setlist-status').textContent = 'プレビュー中…';
+    if (!_editStreamId) return;
+    $('#setlist-status').textContent = '確認中…';
     try {
-      const channelCode = $('#edit-channel').value;
-      const data = await adminApi('preview-stream', {
-        channelCode,
-        streamedOn: $('#edit-streamed-on').value,
-        title: $('#edit-stream-title').value,
-        url: $('#edit-stream-url').value,
-        songsText: $('#edit-songs-text').value,
-      });
+      const data = await adminApi('preview-stream', { songsText: _editSongLines.join('\n') });
       $('#edit-preview-box').innerHTML = `
         <div class="admin-table-wrap">
           <table class="admin-table">
-            <thead><tr><th>#</th><th>曲</th><th>歌手</th><th>キー</th><th>ジャンル</th><th>判定</th></tr></thead>
+            <thead><tr><th>#</th><th>曲名</th><th>アーティスト</th><th>キー</th><th>ジャンル</th><th>照合</th></tr></thead>
             <tbody>
-              ${data.songs.map((row) => `
+              ${data.songs.map((row, i) => `
                 <tr>
-                  <td>${row.position}</td>
+                  <td>${i + 1}</td>
                   <td>${escapeHtml(row.title)}</td>
                   <td>${escapeHtml(row.artist || '')}</td>
                   <td>${escapeHtml(row.displayKey || '')}</td>
                   <td>${escapeHtml(row.genre || '')}</td>
                   <td>${escapeHtml(row.match)}</td>
-                </tr>
-              `).join('')}
+                </tr>`).join('')}
             </tbody>
           </table>
         </div>`;
@@ -968,15 +1038,36 @@ function initStreamEdit() {
 
   $('#save-setlist-btn')?.addEventListener('click', async () => {
     if (!_editStreamId) return;
-    if (!confirm('このセトリに完全に置き換えます。よろしいですか？')) return;
+    const lines = _editSongLines.map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) { $('#setlist-status').textContent = '曲がありません'; return; }
+    if (!confirm(`このセトリ（${lines.length}曲）に置き換えます。\nこの歌枠の曲ごとの開始時刻は曲順が変わるため一度破棄されます。よろしいですか？`)) return;
     $('#setlist-status').textContent = '保存中…';
     try {
-      const data = await adminApi(`streams/${_editStreamId}/setlist`, {
-        songsText: $('#edit-songs-text').value,
-      });
-      $('#setlist-status').textContent = `セトリを保存しました: ${data.count}曲。必要なら静的データ生成を実行してください。`;
+      const data = await adminApi(`streams/${_editStreamId}/setlist`, { songsText: lines.join('\n') });
+      const dropped = data.droppedTimestamps ? `　開始時刻 ${data.droppedTimestamps}件を破棄しました（必要なら再度貼り付けてください）。` : '';
+      $('#setlist-status').textContent = `${data.songCount}曲で保存しました。${dropped}公開サイトへ反映するには「静的データ生成」を実行してください。`;
+      _editSongLines = lines;
+      _renderSetlistRows();
+      await _reloadStreamList();
     } catch (err) {
       $('#setlist-status').textContent = `エラー: ${err.message || err}`;
+    }
+  });
+
+  // 歌枠そのものの削除
+  $('#delete-stream-btn')?.addEventListener('click', async () => {
+    if (!_editStreamId || !_editStreamMeta) return;
+    const label = `#${_editStreamMeta.sourceIndex} ${_editStreamMeta.streamedOn} ${_editStreamMeta.title || ''}`;
+    if (!confirm(`この歌枠を削除します。元に戻せません。\n\n${label}\n\n歌唱回数の集計と、この枠の開始時刻も一緒に取り消されます。よろしいですか？`)) return;
+    if (!confirm('本当に削除しますか？')) return;
+    $('#stream-info-status').textContent = '削除中…';
+    try {
+      const res = await adminApi(`streams/${_editStreamId}/delete`, {});
+      resetForm();
+      $('#stream-edit-status').textContent = `削除しました（${res.removedSongs}曲）。公開サイトへ反映するには「静的データ生成」を実行してください。`;
+      await _reloadStreamList();
+    } catch (err) {
+      $('#stream-info-status').textContent = `エラー: ${err.message || err}`;
     }
   });
 }
