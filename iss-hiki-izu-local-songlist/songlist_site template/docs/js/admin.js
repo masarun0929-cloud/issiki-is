@@ -837,33 +837,20 @@ let _editStreamId = null;
 let _editStreamMeta = null;   // 一覧から選んだ歌枠の情報
 let _editSongLines = [];      // セトリ1行 = 「曲名 / アーティスト | キー | ジャンル」
 
-function _renderStreamList(streams) {
-  const wrap = $('#stream-list-wrap');
+/** 歌枠をプルダウンに並べる（タイムスタンプ反映と同じ選び方に揃える） */
+function _renderStreamOptions(streams) {
+  const select = $('#edit-stream-select');
+  if (!select) return;
   if (!streams.length) {
-    wrap.innerHTML = '<p class="admin-note">歌枠がありません</p>';
+    select.innerHTML = '<option value="">歌枠がありません</option>';
     return;
   }
-  wrap.innerHTML = `
-    <div class="admin-table-wrap">
-      <table class="admin-table">
-        <thead><tr><th>枠</th><th>配信日</th><th>タイトル</th><th>曲数</th><th>時刻</th><th></th></tr></thead>
-        <tbody>
-          ${streams.map((s) => `
-            <tr>
-              <td>#${s.sourceIndex}</td>
-              <td>${escapeHtml(s.streamedOn)}</td>
-              <td>${escapeHtml(s.title || `第${s.sourceIndex}枠`)}</td>
-              <td>${s.songCount}</td>
-              <td>${s.timestampCount > 0 ? `✓${s.timestampCount}` : '—'}</td>
-              <td><button class="btn ghost" data-edit-stream="${s.id}" type="button" style="padding:4px 10px;font-size:12px">編集</button></td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-
-  wrap.querySelectorAll('[data-edit-stream]').forEach((btn) => {
-    btn.addEventListener('click', () => _loadStreamForEdit(Number(btn.dataset.editStream)));
-  });
+  select.innerHTML = ['<option value="">選択してください</option>']
+    .concat(streams.map((s) => {
+      const mark = s.timestampCount > 0 ? `✓${s.timestampCount}` : '未';
+      return `<option value="${s.id}">[${mark}] #${s.sourceIndex} ${escapeHtml(s.streamedOn)} ${escapeHtml(String(s.title || `第${s.sourceIndex}枠`).slice(0, 40))}（${s.songCount}曲）</option>`;
+    }))
+    .join('');
 }
 
 /** セトリを行単位で描画する。並び替え・削除・追加はこの配列を書き換えて再描画する */
@@ -952,7 +939,7 @@ async function _reloadStreamList() {
   $('#stream-edit-status').textContent = '読み込み中…';
   try {
     const data = await adminApi(`streams?channel=${encodeURIComponent(channelCode)}&limit=300`);
-    _renderStreamList(data.streams || []);
+    _renderStreamOptions(data.streams || []);
     $('#stream-edit-status').textContent = `${(data.streams || []).length}件`;
   } catch (err) {
     $('#stream-edit-status').textContent = `エラー: ${err.message || err}`;
@@ -974,10 +961,23 @@ function initStreamEdit() {
     _editSongLines = [];
     $('#stream-edit-form').style.display = 'none';
     $('#stream-edit-badge').textContent = '選択中なし';
+    // 削除後などに選択が残ったままにならないようプルダウンも戻す
+    const select = $('#edit-stream-select');
+    if (select) select.value = '';
   };
 
   editChannel.addEventListener('change', () => { resetForm(); _reloadStreamList(); });
   $('#load-streams-btn')?.addEventListener('click', () => { resetForm(); _reloadStreamList(); });
+
+  // プルダウンで選んだらそのまま編集フォームを開く
+  $('#edit-stream-select')?.addEventListener('change', (e) => {
+    const id = Number(e.target.value);
+    if (!id) { resetForm(); return; }
+    _loadStreamForEdit(id);
+  });
+
+  // 起動時に一覧を読み込んでおく（ボタンを押さなくても選べるように）
+  _reloadStreamList();
 
   // 歌枠情報（配信日・タイトル・URL・枠番号）
   $('#save-stream-info-btn')?.addEventListener('click', async () => {

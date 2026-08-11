@@ -9,7 +9,7 @@ export const SITE = {
   baseUrl: './',
   description: '一色イズさんの歌った曲リスト、ランキング、検索をまとめたローカル試作版の歌唱データベース。',
   fanLabel: '一色イズ ファン',
-  contactUrl: '#',
+  contactUrl: 'https://forms.gle/q9vS5Wg7QHXkP6bb8',
   storagePrefix: 'isshiki-izu-songlist',
   officialLinks: [
     { label: 'YouTube', url: 'https://www.youtube.com/@%E4%B8%80%E8%89%B2%E3%82%A4%E3%82%BA', className: 'youtube' },
