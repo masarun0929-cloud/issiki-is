@@ -15,11 +15,13 @@
 // ─── URL直列化可能な状態 (SSoT = URL) ────────────────────────────────────────
 
 import { SITE } from './config.js';
+// URL との相互変換は url-state.js が唯一の実装。ここでは読み書きだけ借りて、
+// 他モジュールが store 経由でも使えるようそのまま再 export する。
+import { readUrlState, writeUrlState } from './url-state.js';
 
-const VALID_TABS = new Set(['dashboard', 'ranking', 'songs', 'timeline', 'lives', 'analytics', 'requests', 'playlists']);
+export { readUrlState, writeUrlState };
+
 const FAVORITES_KEY = `${SITE.storagePrefix}-favorites-v1`;
-const VALID_CHANNELS = new Set(['new', 'old', 'all']);
-const VIDEO_ID_RE = /^[\w-]{11}$/;
 
 /**
  * @typedef {object} UrlState
@@ -65,37 +67,9 @@ export function onStateChange(fn) {
 }
 
 // ─── URLからの読み書き ───────────────────────────────────────────────────────
-
-export function readUrlState() {
-  const params = new URLSearchParams(window.location.search);
-  const rawTab = params.get('tab');
-  const rawChannel = params.get('ch');
-  const rawV = params.get('v') || '';
-  return {
-    tab: VALID_TABS.has(rawTab) ? rawTab : 'dashboard',
-    channel: VALID_CHANNELS.has(rawChannel) ? rawChannel : 'new',
-    q: params.get('q') || '',
-    v: VIDEO_ID_RE.test(rawV) ? rawV : '',
-    t: Math.max(0, parseInt(params.get('t') || '0', 10) || 0),
-  };
-}
-
-export function writeUrlState(next = {}, options = {}) {
-  const merged = { ...readUrlState(), ...next };
-  const params = new URLSearchParams();
-  if (merged.tab !== 'dashboard') params.set('tab', merged.tab);
-  if (merged.channel !== 'new') params.set('ch', merged.channel);
-  if (merged.q) params.set('q', merged.q);
-  if (merged.v) {
-    params.set('v', merged.v);
-    if (merged.t > 0) params.set('t', String(Math.floor(merged.t)));
-  }
-  const search = params.toString();
-  const url = search ? `${window.location.pathname}?${search}` : window.location.pathname;
-  const method = options.replace ? 'replaceState' : 'pushState';
-  window.history[method](null, '', url);
-  return merged;
-}
+// 実装は url-state.js に一本化する。
+// 以前はここにも同じ関数があり、タブを追加したときに片方だけ直して
+// ?tab=lives が復元されない不具合が起きた。
 
 // ─── デフォルト値 ────────────────────────────────────────────────────────────
 

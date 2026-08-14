@@ -38,6 +38,12 @@ async function ensureSchema(env) {
   } catch {
     // 追加済み
   }
+  try {
+    // 連続投稿の判定に使う投稿者ハッシュ（生IPは保存しない）
+    await env.DB.prepare('ALTER TABLE song_requests ADD COLUMN submitter_hash TEXT').run();
+  } catch {
+    // 追加済み
+  }
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_song_requests_votes ON song_requests(vote_count DESC, created_at DESC)').run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_song_requests_created ON song_requests(created_at DESC)').run();
 }
@@ -109,18 +115,39 @@ async function listRequests(env, request) {
   return { items: (result.results || []).map(toItem) };
 }
 
+/**
+ * 短時間の連続投稿を止める。誰でも投稿できるフォームなので、
+ * 無制限だと一人で一覧を埋め尽くせてしまう。
+ */
+async function assertNotFlooding(env, request) {
+  await ensureVoteSchema(env);
+  const hash = await voterHash(request, env);
+  const row = await env.DB.prepare(`
+    SELECT COUNT(*) AS n FROM song_requests
+    WHERE submitter_hash = ? AND created_at > datetime('now', '-10 minutes')
+  `).bind(hash).first().catch(() => null);
+  if (row && Number(row.n) >= 5) {
+    const error = new Error('短時間に送りすぎです。しばらく待ってから試してください');
+    error.status = 429;
+    throw error;
+  }
+  return hash;
+}
+
 async function createRequest(env, request) {
   const payload = cleanPayload(await readJson(request));
+  const submitterHash = await assertNotFlooding(env, request);
   const ownerToken = generateOwnerToken();
   const result = await env.DB.prepare(`
-    INSERT INTO song_requests (title, artist, url, requester_name, owner_token_hash)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO song_requests (title, artist, url, requester_name, owner_token_hash, submitter_hash)
+    VALUES (?, ?, ?, ?, ?, ?)
   `).bind(
     payload.title,
     payload.artist,
     payload.url,
     payload.requesterName,
     await hashOwnerToken(ownerToken),
+    submitterHash,
   ).run();
   const id = result.meta?.last_row_id;
   const row = await env.DB.prepare(`
@@ -184,36 +211,83 @@ async function deleteOwnRequest(env, id, payload) {
   return { ok: true, id };
 }
 
-async function voteRequest(env, id) {
-  if (!Number.isInteger(id) || id <= 0) {
-    const error = new Error('リクエストが見つかりません');
-    error.status = 404;
-    throw error;
-  }
+/**
+ * 投票者の識別子。生IPは保存せず、ソルト付きハッシュだけを持つ。
+ * localStorage だけの管理では API を直接叩けば何度でも票を増やせるため、
+ * サーバー側でも1人1票にするために使う。
+ */
+async function voterHash(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP')
+    || request.headers.get('x-forwarded-for')
+    || 'unknown';
+  const salt = env.VOTE_SALT || 'song-request-vote';
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${ip}`));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
+async function ensureVoteSchema(env) {
   await env.DB.prepare(`
-    UPDATE song_requests
-    SET vote_count = vote_count + 1, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).bind(id).run();
+    CREATE TABLE IF NOT EXISTS song_request_votes (
+      request_id  INTEGER NOT NULL,
+      voter_hash  TEXT    NOT NULL,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (request_id, voter_hash)
+    )
+  `).run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_srv_voter ON song_request_votes (voter_hash, created_at DESC)').run();
+}
+
+async function fetchRequestOr404(env, id) {
   const row = await env.DB.prepare(`
     SELECT id, title, artist, url, requester_name, status, vote_count, created_at, updated_at
-    FROM song_requests
-    WHERE id = ?
+    FROM song_requests WHERE id = ?
   `).bind(id).first();
   if (!row) {
     const error = new Error('リクエストが見つかりません');
     error.status = 404;
     throw error;
   }
-  return { ok: true, item: toItem(row) };
+  return row;
 }
 
-async function unvoteRequest(env, id) {
+async function voteRequest(env, id, request) {
   if (!Number.isInteger(id) || id <= 0) {
     const error = new Error('リクエストが見つかりません');
     error.status = 404;
     throw error;
+  }
+  await ensureVoteSchema(env);
+  await fetchRequestOr404(env, id);
+
+  // 既に投票済みなら票は増やさない（PRIMARY KEY で弾く）
+  const inserted = await env.DB.prepare(
+    'INSERT OR IGNORE INTO song_request_votes (request_id, voter_hash) VALUES (?, ?)',
+  ).bind(id, await voterHash(request, env)).run();
+
+  if (inserted.meta?.changes > 0) {
+    await env.DB.prepare(`
+      UPDATE song_requests
+      SET vote_count = vote_count + 1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(id).run();
+  }
+  return { ok: true, item: toItem(await fetchRequestOr404(env, id)) };
+}
+
+async function unvoteRequest(env, id, request) {
+  if (!Number.isInteger(id) || id <= 0) {
+    const error = new Error('リクエストが見つかりません');
+    error.status = 404;
+    throw error;
+  }
+  await ensureVoteSchema(env);
+
+  // 自分の票が無ければ何も減らさない
+  const removed = await env.DB.prepare(
+    'DELETE FROM song_request_votes WHERE request_id = ? AND voter_hash = ?',
+  ).bind(id, await voterHash(request, env)).run();
+  if (!(removed.meta?.changes > 0)) {
+    return { ok: true, item: toItem(await fetchRequestOr404(env, id)) };
   }
 
   await env.DB.prepare(`
@@ -222,17 +296,7 @@ async function unvoteRequest(env, id) {
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `).bind(id).run();
-  const row = await env.DB.prepare(`
-    SELECT id, title, artist, url, requester_name, status, vote_count, created_at, updated_at
-    FROM song_requests
-    WHERE id = ?
-  `).bind(id).first();
-  if (!row) {
-    const error = new Error('リクエストが見つかりません');
-    error.status = 404;
-    throw error;
-  }
-  return { ok: true, item: toItem(row) };
+  return { ok: true, item: toItem(await fetchRequestOr404(env, id)) };
 }
 
 async function route({ request, env, params }) {
@@ -245,12 +309,12 @@ async function route({ request, env, params }) {
 
   const voteMatch = path.match(/^(\d+)\/vote$/);
   if (request.method === 'POST' && voteMatch) {
-    return json(await voteRequest(env, Number(voteMatch[1])));
+    return json(await voteRequest(env, Number(voteMatch[1]), request));
   }
 
   const unvoteMatch = path.match(/^(\d+)\/unvote$/);
   if (request.method === 'POST' && unvoteMatch) {
-    return json(await unvoteRequest(env, Number(unvoteMatch[1])));
+    return json(await unvoteRequest(env, Number(unvoteMatch[1]), request));
   }
 
   const deleteMatch = path.match(/^(\d+)\/delete$/);

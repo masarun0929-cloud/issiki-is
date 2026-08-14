@@ -1,4 +1,6 @@
-const VALID_TABS = new Set(['dashboard', 'ranking', 'songs', 'timeline', 'analytics', 'requests', 'playlists']);
+// タブを増やしたらここに足す。漏れると ?tab=... で開き直したときに
+// ダッシュボードへ戻ってしまう（lives の追加時に実際に起きた）。
+const VALID_TABS = new Set(['dashboard', 'ranking', 'songs', 'timeline', 'lives', 'analytics', 'requests', 'playlists']);
 const VALID_CHANNELS = new Set(['new', 'old', 'all']);
 const VIDEO_ID_RE = /^[\w-]{11}$/;
 const DEFAULTS = {
