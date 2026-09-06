@@ -944,7 +944,9 @@ body[data-audience="listener"] [data-mobile-panel-toggle="setlist"] {
 }
 .song-key-actions {
   display: inline-flex;
+  align-items: center;
   justify-content: flex-start;
+  gap: 5px;
   flex-wrap: nowrap;
   width: fit-content;
   max-width: 100%;
@@ -979,6 +981,45 @@ body[data-audience="listener"] [data-mobile-panel-toggle="setlist"] {
 }
 .setlist-add-btn:active {
   transform: scale(0.96);
+}
+.song-copy-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-mute);
+  padding: 0;
+  cursor: pointer;
+  box-shadow: none;
+  transition: transform 0.08s ease, background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.song-copy-btn svg {
+  width: 13px;
+  height: 13px;
+}
+.song-copy-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+.song-copy-btn.is-copied {
+  border-color: color-mix(in srgb, var(--green-text) 35%, transparent);
+  background: var(--green-bg);
+  color: var(--green-text);
+}
+.song-copy-btn.is-error {
+  border-color: color-mix(in srgb, var(--red) 35%, transparent);
+  background: color-mix(in srgb, var(--red) 12%, var(--surface));
+  color: var(--red);
+}
+.song-copy-btn:active {
+  transform: scale(0.94);
 }
 .song-row .count {
   font-size: 14px;
@@ -1297,6 +1338,8 @@ body[data-audience="listener"] [data-mobile-panel-toggle="setlist"] {
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
+    gap: 5px;
+    flex-wrap: wrap;
     width: 100%;
     max-width: 100%;
     overflow: visible;
@@ -1319,6 +1362,10 @@ body[data-audience="listener"] [data-mobile-panel-toggle="setlist"] {
     color: var(--setlist-add-text);
     padding: 2px 9px;
     font-size: 11px;
+  }
+  body[data-audience="singer"] .song-copy-btn {
+    width: 24px;
+    height: 24px;
   }
   body[data-audience="singer"] .song-meta-line .tag-badge:nth-of-type(n + 5),
   body[data-audience="singer"] .song-meta-line .match-badge {

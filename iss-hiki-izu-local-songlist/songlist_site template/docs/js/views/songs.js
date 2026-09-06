@@ -20,6 +20,8 @@ import {
 let searchInputEl, sortSelectEl, genreSelectEl, filterButtonsEl, genreChipsEl, listEl, countEl, moreBtnWrap;
 let searchHistoryDropdown = null;
 let currentFiltered = [];
+let copiedSongButtonTimer = null;
+let lastCopiedSongButton = null;
 
 // ── 無限スクロール（IntersectionObserver） ────────────────────────────────
 let _infiniteObserver = null;
@@ -316,6 +318,13 @@ export function renderSongs() {
     if (action) {
       e.stopPropagation();
       handleSetlistAction(action);
+      return;
+    }
+    const copySongBtn = e.target.closest('[data-song-copy]');
+    if (copySongBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      copySongLine(copySongBtn);
       return;
     }
     const artist = e.target.closest('[data-artist-search]');
@@ -683,13 +692,89 @@ function tagBadges(song) {
 function keyHtml(song) {
   if (!state.singerMode) return '';
   const addButton = `<button class="setlist-add-btn" type="button" data-setlist-action="add" data-songkey="${escapeHtml(song.key)}">${icon('plus')} セトリ</button>`;
+  const copyButton = `<button class="song-copy-btn" type="button" data-song-copy data-songkey="${escapeHtml(song.key)}" aria-label="${escapeHtml(song.title)}をコピー" data-tooltip="曲名 / アーティストをコピー">${icon('copy')}</button>`;
   if (!state.data?.stats?.keyPublished) {
-    return `<div class="song-key-line song-key-actions">${addButton}</div>`;
+    return `<div class="song-key-line song-key-actions">${addButton}${copyButton}</div>`;
   }
   const keys = String(song.displayKey || '').split(',').map(k => k.trim()).filter(Boolean);
   if (!keys.length) {
-    return `<div class="song-key-line song-key-actions"><span class="song-key-empty">キー未登録</span>${addButton}</div>`;
+    return `<div class="song-key-line song-key-actions"><span class="song-key-empty">キー未登録</span>${addButton}${copyButton}</div>`;
   }
   const badges = keys.map(k => `<button type="button" class="song-key-badge" data-tooltip="配信で使われた参考キー"><span>キー</span><strong>${escapeHtml(k)}</strong></button>`).join('');
-  return `<div class="song-key-line song-key-actions">${badges}${addButton}</div>`;
+  return `<div class="song-key-line song-key-actions">${badges}${addButton}${copyButton}</div>`;
+}
+
+function songCopyText(song) {
+  const title = String(song?.title || '').trim();
+  const artist = String(song?.artist || '').trim();
+  if (!title && !artist) return '';
+  const body = artist ? `${title} / ${artist}` : title;
+  // セトリのコピー形式と合わせる（タイムスタンプ入力用選択時はそのまま貼れる形に）
+  return state.setlist?.copyFormat === 'timestamp' ? `00:00　${body}　00:00` : body;
+}
+
+async function writeClipboardText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (_) {
+    // 非セキュアコンテキスト等のフォールバック
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+function restoreCopiedSongButton(button) {
+  if (!button) return;
+  button.classList.remove('is-copied');
+  if (button.dataset.copyRestore) {
+    button.innerHTML = button.dataset.copyRestore;
+    delete button.dataset.copyRestore;
+  }
+  if (button.dataset.copyLabelRestore != null) {
+    button.setAttribute('aria-label', button.dataset.copyLabelRestore);
+    delete button.dataset.copyLabelRestore;
+  }
+}
+
+async function copySongLine(button) {
+  const song = (state.data?.songs || []).find(item => item.key === button.dataset.songkey);
+  const text = songCopyText(song);
+  if (!text) return;
+  // 別ボタンを連続コピーした際に前のボタンが緑のまま残らないように戻す
+  if (lastCopiedSongButton && lastCopiedSongButton !== button) {
+    window.clearTimeout(copiedSongButtonTimer);
+    restoreCopiedSongButton(lastCopiedSongButton);
+  }
+  const ok = await writeClipboardText(text);
+  if (!ok) {
+    button.classList.add('is-error');
+    window.setTimeout(() => button.classList.remove('is-error'), 1200);
+    return;
+  }
+  window.clearTimeout(copiedSongButtonTimer);
+  if (!button.dataset.copyRestore) {
+    button.dataset.copyRestore = button.innerHTML;
+    button.dataset.copyLabelRestore = button.getAttribute('aria-label') || '';
+  }
+  button.classList.add('is-copied');
+  button.innerHTML = icon('check');
+  button.setAttribute('aria-label', 'コピーしました');
+  lastCopiedSongButton = button;
+  copiedSongButtonTimer = window.setTimeout(() => {
+    restoreCopiedSongButton(button);
+    if (lastCopiedSongButton === button) lastCopiedSongButton = null;
+  }, 1200);
 }
