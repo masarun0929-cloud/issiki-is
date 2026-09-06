@@ -410,12 +410,6 @@ button.official-link {
 .ch-btn[data-channel="old"].active {
   background: linear-gradient(135deg, var(--gold), #c8a02a);
 }
-.audience-switch .ch-btn[data-audience="singer"].active {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-}
-.audience-switch .ch-btn[data-audience="listener"].active {
-  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
-}
 .ch-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -431,7 +425,6 @@ button.official-link {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .audience-switch .ch-btn { padding: 0 7px; }
 }
 
 @media (max-width: 700px) {
@@ -1048,8 +1041,7 @@ button.official-link {
 /* CLS対策: パネル初期表示時に高さを確保 */
 #panel-songs:not(.active),
 #panel-ranking:not(.active),
-#panel-timeline:not(.active),
-#panel-analytics:not(.active) {
+#panel-timeline:not(.active) {
   display: none;
 }
 #panel-dashboard:not(.active) {
@@ -1198,22 +1190,30 @@ button.official-link {
   background: linear-gradient(180deg, var(--accent-soft), var(--accent));
   border-color: var(--accent);
 }
-:root[data-theme="dark"] .stat-card.accent,
-:root[data-theme="auto"] .stat-card.accent {
+:root[data-theme="dark"] .stat-card.accent {
   background: linear-gradient(180deg, var(--accent-soft), #6a3554);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] .stat-card.accent {
+    background: linear-gradient(180deg, var(--accent-soft), #6a3554);
+  }
 }
 .stat-card.accent .stat-value { color: var(--accent-strong); }
 .stat-card.gold {
   background: linear-gradient(180deg, #fff5d8, #fde9a8);
   border-color: var(--gold);
 }
-:root[data-theme="dark"] .stat-card.gold,
-:root[data-theme="auto"] .stat-card.gold {
+:root[data-theme="dark"] .stat-card.gold {
   background: linear-gradient(180deg, #3a3018, #2a2210);
 }
 .stat-card.gold .stat-value { color: #b88d1a; }
-:root[data-theme="dark"] .stat-card.gold .stat-value,
-:root[data-theme="auto"] .stat-card.gold .stat-value { color: var(--gold); }
+:root[data-theme="dark"] .stat-card.gold .stat-value { color: var(--gold); }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] .stat-card.gold {
+    background: linear-gradient(180deg, #3a3018, #2a2210);
+  }
+  :root[data-theme="auto"] .stat-card.gold .stat-value { color: var(--gold); }
+}
 
 /* === Badges === */
 
@@ -1282,9 +1282,13 @@ button.official-link {
   box-shadow: var(--shadow-sm);
   flex-wrap: wrap;
 }
-:root[data-theme="dark"] .filter-banner,
-:root[data-theme="auto"] .filter-banner {
+:root[data-theme="dark"] .filter-banner {
   background: linear-gradient(135deg, var(--accent-soft), #6a3554);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] .filter-banner {
+    background: linear-gradient(135deg, var(--accent-soft), #6a3554);
+  }
 }
 .filter-banner .filter-icon { font-size: 18px; }
 .filter-banner .filter-text {
@@ -4569,9 +4573,13 @@ body.has-sv-fullscreen .container { z-index: auto; }
   color: #cc0000;
 }
 
-[data-theme="dark"] .pl-yt-share-btn:hover,
-[data-theme="auto"] .pl-yt-share-btn:hover {
+[data-theme="dark"] .pl-yt-share-btn:hover {
   color: #ff6666;
+}
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] .pl-yt-share-btn:hover {
+    color: #ff6666;
+  }
 }
 
 /* プレイリスト追加モーダル */

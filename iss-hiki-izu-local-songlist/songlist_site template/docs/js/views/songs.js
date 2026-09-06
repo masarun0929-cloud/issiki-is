@@ -63,6 +63,9 @@ export function renderSongs() {
     <div class="section-header">
       <h2>${state.singerMode ? `${icon('mic')} 選曲ボード` : `${icon('music')} 全曲リスト`}</h2>
       <span class="count-pill" id="songs-count">—</span>
+      ${state.singerMode
+        ? '<button class="btn ghost" type="button" data-audience-toggle data-tooltip="閲覧向けの表示に戻す" data-tooltip-pos="top">リスナー表示に戻す</button>'
+        : `<button class="btn primary" type="button" data-audience-toggle data-tooltip="キー確認・セトリ作成向けの表示に切り替える" data-tooltip-pos="top">${icon('mic')} 配信者モードで選曲</button>`}
     </div>
     <div class="mobile-panel-switch">
       <button class="btn ghost active" type="button" data-mobile-panel-toggle="filters">絞り込み</button>
@@ -239,7 +242,10 @@ export function renderSongs() {
   });
   for (const btn of panel.querySelectorAll('[data-singer-preset]')) {
     btn.addEventListener('click', () => {
+      // 裏道でも3箇所(audience・singerMode・body属性)を必ず同期する
+      state.audience = 'singer';
       state.singerMode = true;
+      document.body.dataset.audience = 'singer';
       state.singerPreset = state.singerPreset === btn.dataset.singerPreset ? 'all' : btn.dataset.singerPreset;
       state.songsLimit = 100;
       refresh();

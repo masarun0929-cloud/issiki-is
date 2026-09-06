@@ -25,7 +25,7 @@ const FAVORITES_KEY = `${SITE.storagePrefix}-favorites-v1`;
 
 /**
  * @typedef {object} UrlState
- * @property {'dashboard'|'ranking'|'songs'|'timeline'|'lives'|'analytics'} tab
+ * @property {'dashboard'|'ranking'|'songs'|'timeline'|'lives'|'requests'|'playlists'} tab
  * @property {'new'|'old'|'all'} channel
  * @property {string} q
  */

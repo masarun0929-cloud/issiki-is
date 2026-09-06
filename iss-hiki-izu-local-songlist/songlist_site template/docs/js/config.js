@@ -84,7 +84,7 @@ export const SETLIST_GID = CHANNELS.new.setlistGid;
 export const TIMELINE_INITIAL = 12;
 export const TIMELINE_STEP = 12;
 export const RANKING_LIST_LIMIT = 50;
-export const TOP_ARTISTS_LIMIT = 20;
+export const TOP_ARTISTS_LIMIT = 10;
 export const ACTIVITY_RECENT_LIMIT = 5;
 
 export const DAYS_FRESH = 30;
