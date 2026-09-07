@@ -471,16 +471,14 @@ button.official-link {
 .theme-toggle:hover {
   border-color: var(--primary);
 }
-/* 汎用ツールチップ: data-tooltip 属性を持つ要素にホバー/フォーカスで表示 */
-[data-tooltip] {
-  position: relative;
-}
-[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%) translateY(-4px);
+/* グローバルツールチップ: js/tooltip.js が単一fixed要素(.global-tip)で自動配置する。
+   旧の疑似要素方式は無効化済み。data-tooltip-pos属性は無視される(残置可)。 */
+.global-tip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  max-width: min(280px, calc(100vw - 16px));
   background: var(--ink);
   color: var(--surface);
   font-size: 10px;
@@ -488,37 +486,9 @@ button.official-link {
   padding: 3px 8px;
   border-radius: 4px;
   white-space: nowrap;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s, transform 0.15s;
-  z-index: 100;
 }
-[data-tooltip]:hover::after,
-[data-tooltip]:focus-visible::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-/* 上向き表示（画面下部の音楽バーなど、下にスペースがない場所用） */
-[data-tooltip][data-tooltip-pos="top"]::after {
-  top: auto;
-  bottom: calc(100% + 6px);
-  transform: translateX(-50%) translateY(4px);
-}
-[data-tooltip][data-tooltip-pos="top"]:hover::after,
-[data-tooltip][data-tooltip-pos="top"]:focus-visible::after {
-  transform: translateX(-50%) translateY(0);
-}
-/* 左向き表示（overflow: hidden なカード内の右端ボタン用） */
-[data-tooltip][data-tooltip-pos="left"]::after {
-  top: 50%;
-  left: auto;
-  right: calc(100% + 6px);
-  transform: translateY(-50%) translateX(4px);
-}
-[data-tooltip][data-tooltip-pos="left"]:hover::after,
-[data-tooltip][data-tooltip-pos="left"]:focus-visible::after {
-  transform: translateY(-50%) translateX(0);
-}
+.global-tip[hidden] { display: none; }
 .theme-icon { font-size: 14px; }
 .theme-label { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-mute); }
 
@@ -904,28 +874,7 @@ button.official-link {
   }
 }
 
-/* プレイリストタブ / ビューワーを大きく開いている間: サイドバーを非表示にして全幅使用。
-   ミニプレイヤー(.has-sv-mini)と音楽バー(.has-sv-music)は #stream-viewer を
-   hidden にしないまま小さく表示し続けるので、ここでは対象外にする
-   （再生中もメニューを使えるようにするため）。 */
-@media (min-width: 1021px) {
-  body[data-active-tab="playlists"],
-  body:has(#stream-viewer:not([hidden])):not(.has-sv-mini):not(.has-sv-music) {
-    --db-sidebar-current: 0px;
-    padding-left: 0 !important;
-  }
 
-  body[data-active-tab="playlists"] .tabs,
-  body:has(#stream-viewer:not([hidden])):not(.has-sv-mini):not(.has-sv-music) .tabs {
-    display: none;
-  }
-
-  body[data-active-tab="playlists"] .topbar,
-  body:has(#stream-viewer:not([hidden])):not(.has-sv-mini):not(.has-sv-music) .topbar {
-    left: 0 !important;
-    width: 100% !important;
-  }
-}
 
 @media (max-width: 700px) {
   .tabs {
@@ -2125,88 +2074,6 @@ mark.hl {
   background: var(--surface);
   /* コンテナのpaddingを打ち消して全幅使用 */
   margin-inline: calc(-1 * clamp(16px, 1.6vw, 32px));
-}
-
-/* ============================================================
-   パネル上部ナビゲーション（ビューワー + プレイリスト共通）
-   ============================================================ */
-
-/* ビューワー: #panel-playerは全幅(負マージン)なのでpadding補正 */
-.sv-topnav {
-  margin: 10px clamp(16px,1.6vw,32px) 0;
-}
-
-/* プレイリストパネル: 通常フロー内 */
-.panel-topnav {
-  margin-bottom: 14px;
-}
-
-.sv-topnav,
-.panel-topnav {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px;
-  width: calc(100% - 2 * clamp(16px,1.6vw,32px));
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--surface) 72%, var(--surface-3) 28%);
-  box-shadow: var(--shadow-sm);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.panel-topnav { width: auto; }
-.sv-topnav::-webkit-scrollbar,
-.panel-topnav::-webkit-scrollbar { display: none; }
-
-.sv-topnav-btn,
-.panel-topnav-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 6px 13px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink-mute);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-.sv-topnav-btn svg,
-.panel-topnav-btn svg {
-  width: 15px; height: 15px;
-  display: block; flex: 0 0 15px;
-  fill: none; stroke: currentColor;
-  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-}
-.sv-topnav-btn:hover,
-.panel-topnav-btn:hover {
-  background: color-mix(in srgb, var(--surface) 74%, var(--primary-soft) 26%);
-  color: var(--primary-strong);
-}
-.sv-topnav-btn.active,
-.panel-topnav-btn.active {
-  background: color-mix(in srgb, var(--surface) 74%, var(--primary-soft) 26%);
-  color: var(--primary-strong);
-  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
-  box-shadow: var(--shadow-sm), inset 0 0 0 1px color-mix(in srgb, var(--primary) 16%, transparent);
-}
-
-@media (max-width: 1020px) {
-  .sv-topnav,
-  .panel-topnav {
-    width: 100%;
-    margin-inline: 0;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-  }
 }
 
 /* ============================================================
@@ -6871,9 +6738,8 @@ body.has-sv-mini #yt-player-panel:hover .yt-mini-progress-wrap { height: 4px; }
   }
   body[data-active-tab]:not([data-active-tab="dashboard"]) #hero .hero-title-icon { width: 22px; height: 22px; }
 
-  /* 動画ビューワー表示中はヒーロー/タブを隠してプレイヤーを最上部に（集中表示） */
-  body[data-active-tab="player"] #hero,
-  body[data-active-tab="player"] .tabs {
+  /* 動画ビューワー表示中はヒーローのみ隠す（サイドバーは常時表示） */
+  body[data-active-tab="player"] #hero {
     display: none;
   }
 

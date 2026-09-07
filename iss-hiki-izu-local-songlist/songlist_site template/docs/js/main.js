@@ -7,6 +7,7 @@ import { $, $$, escapeHtml, fmtDate, fmtTs, streamKey, youtubeThumb, youtubeThum
 import { DEFAULT_CHANNEL, SITE } from './config.js';
 import { readUrlState, writeUrlState } from './url-state.js';
 import { initSearchPalette, openSearchPalette, closeSearchPalette, isSearchPaletteOpen } from './views/search-palette.js';
+import { initTooltip } from './tooltip.js';
 import { icon } from './icons.js';
 import { initChannelModal, initHelpModal, initWelcomeTip } from './views/modals.js';
 import { renderHero } from './views/hero.js';
@@ -211,8 +212,8 @@ function syncActiveTabUi(tab) {
   $$('.panel').forEach(p => p.classList.toggle('active', p.id === (playerVisible ? 'panel-player' : `panel-${tab}`)));
   document.body.dataset.activeTab = playerVisible ? 'player' : tab; // ヒーロー圧縮・ビューワー集中表示の CSS フック
 
-  // ビューワー表示中とプレイリストタブはサイドバーを非表示にして全幅使用
-  _setSidebarHidden(playerVisible || tab === 'playlists');
+  // ビューワー表示中のみサイドバーを非表示にして全幅使用（プレイリストは標準表示）
+  _setSidebarHidden(playerVisible);
 }
 
 /** サイドバーの表示・非表示を切り替え、body padding と topbar left を同期する */
@@ -243,11 +244,16 @@ function initSidebarNav() {
     try { localStorage.setItem(storageKey, collapsed ? '1' : '0'); } catch (_) {}
   };
 
+  // 初回表示は折りたたみ既定。既存利用者の保存値は移行マーカーで1回だけ上書きする
+  const migratedKey = `${SITE.storagePrefix}-sidebar-collapsed-v2`;
   try {
-    setCollapsed(localStorage.getItem(storageKey) === '1');
-  } catch (_) {
-    setCollapsed(false);
-  }
+    if (localStorage.getItem(migratedKey) === null) {
+      setCollapsed(true);
+      localStorage.setItem(migratedKey, '1');
+    } else {
+      setCollapsed(localStorage.getItem(storageKey) === '1');
+    }
+  } catch (_) { setCollapsed(true); }
 
   // 初期状態を描画してから transition を有効化（起動時のアニメーション/シフト防止）
   requestAnimationFrame(() => {
@@ -811,6 +817,7 @@ initPlayerShell({
   syncTabUi: () => syncActiveTabUi(state.activeTab),
 });
 initHelpModal();
+initTooltip();
 initChannelModal();
 initYouTubePlayer();
 initStreamViewer();
