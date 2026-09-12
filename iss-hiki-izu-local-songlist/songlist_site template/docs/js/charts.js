@@ -5,7 +5,7 @@ const charts = new Map();
 let chartJsPromise = null;
 let cssVars = {};
 
-function ensureChartJs() {
+export function ensureChartJs() {
   if (window.Chart) return Promise.resolve(window.Chart);
   if (chartJsPromise) return chartJsPromise;
 

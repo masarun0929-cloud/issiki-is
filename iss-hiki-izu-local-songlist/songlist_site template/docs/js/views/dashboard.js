@@ -5,7 +5,7 @@ import { getToday } from '../store.js';
 import { icon } from '../icons.js';
 import { openStreamViewer, playMyListInViewer } from '../player/stream-player.js';
 import { getWatchHistory, clearWatchHistory, removeWatchEntry } from '../player/watch-history.js';
-import { chartCanvas, createChart, getColors } from '../charts.js';
+import { chartCanvas, createChart, ensureChartJs, getColors } from '../charts.js';
 import { analyticsSectionHtml, bindAnalytics } from './analytics.js';
 
 export function renderDashboard() {
@@ -341,11 +341,12 @@ function genrePctPlugin(colors) {
   };
 }
 
-/** 中央に合計曲数を表示 */
+/** 中央に合計曲数を表示（ホバー中はツールチップ優先で一時非表示） */
 function genreCenterPlugin(total) {
   return {
     id: 'genre-center',
     afterDraw(chart) {
+      if (chart.$genreCenterHidden) return;
       const arc = chart.getDatasetMeta(0)?.data?.[0];
       if (!arc) return;
       const c = getColors();
@@ -364,11 +365,25 @@ function genreCenterPlugin(total) {
   };
 }
 
+/** ツールチップを区分の外側に出す配置（中央の合計表示と被せない） */
+function registerGenreOutsidePositioner(ChartCtor) {
+  if (ChartCtor.Tooltip.positioners.genreOutside) return;
+  ChartCtor.Tooltip.positioners.genreOutside = function (items) {
+    const el = items?.[0]?.element;
+    if (!el || el.outerRadius == null) return false;
+    const mid = (el.startAngle + el.endAngle) / 2;
+    const r = el.outerRadius + 10;
+    return { x: el.x + Math.cos(mid) * r, y: el.y + Math.sin(mid) * r };
+  };
+}
+
 function drawGenreChart(rows) {
   if (!rows.length) return;
   const c = getColors();
   const palette = genrePalette();
   const total = rows.reduce((sum, [, count]) => sum + count, 0);
+  // Chart.js読み込み後に配置を登録してから描画する（登録が先になるよう順序を保証）
+  ensureChartJs().then((ChartCtor) => registerGenreOutsidePositioner(ChartCtor));
   createChart('chart-genre', 'doughnut', {
     labels: rows.map(([genre]) => genre),
     datasets: [{
@@ -388,6 +403,15 @@ function drawGenreChart(rows) {
     plugins: {
       legend: { display: false },
       tooltip: {
+        position: 'genreOutside',
+        // ホバー中は中央合計を隠し、閉じたら復活させる
+        external: (ctx) => {
+          const hide = ctx.tooltip.opacity !== 0;
+          if (ctx.chart.$genreCenterHidden !== hide) {
+            ctx.chart.$genreCenterHidden = hide;
+            ctx.chart.update();
+          }
+        },
         callbacks: {
           label: (item) => {
             const t = item.dataset.data.reduce((sum, v) => sum + v, 0);
