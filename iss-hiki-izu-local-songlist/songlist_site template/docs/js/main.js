@@ -328,11 +328,23 @@ function switchChannel(channelId, options = {}) {
   }
 }
 
+function updateAudienceToggle() {
+  const btn = document.querySelector('#audience-toggle');
+  if (!btn) return;
+  const singer = state.audience === 'singer';
+  btn.classList.toggle('is-active', singer);
+  btn.setAttribute('aria-pressed', String(singer));
+  const label = btn.querySelector('span');
+  if (label) label.textContent = singer ? '配信者モード中' : '配信者モード';
+  btn.title = singer ? 'リスナー表示に戻す' : '配信者モードに切り替える';
+}
+
 function switchAudience(audience, options = {}) {
   state.audience = audience === 'singer' ? 'singer' : 'listener';
   state.singerMode = state.audience === 'singer';
   if (!state.singerMode) state.singerPreset = 'all';
   document.body.dataset.audience = state.audience;
+  updateAudienceToggle();
   updateMobileMenuLabel();
   if (state.audience === 'singer') {
     state.songsLimit = 100;
@@ -818,6 +830,11 @@ initPlayerShell({
 });
 initHelpModal();
 initTooltip();
+updateAudienceToggle();
+// メニュー内の stopPropagation で委譲に届かないため直接束縛する
+document.querySelector('#audience-toggle')?.addEventListener('click', () => {
+  switchAudience(state.audience === 'singer' ? 'listener' : 'singer');
+});
 initChannelModal();
 initYouTubePlayer();
 initStreamViewer();

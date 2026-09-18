@@ -788,6 +788,10 @@ kbd {
   .topbar-actions .channel-switch {
     grid-column: 1 / -1;
   }
+  .topbar-actions .audience-toggle {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
   .topbar-actions .topbar-official-links {
     grid-column: 1;
     display: grid;

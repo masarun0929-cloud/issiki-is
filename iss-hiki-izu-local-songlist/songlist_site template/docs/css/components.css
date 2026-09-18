@@ -471,6 +471,32 @@ button.official-link {
 .theme-toggle:hover {
   border-color: var(--primary);
 }
+/* ヘッダーの配信者モード切替（ON時は塗り＋白文字で明示） */
+.audience-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.audience-toggle:hover {
+  border-color: var(--primary);
+}
+.audience-toggle.is-active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  border-color: var(--primary-strong);
+  color: #fff;
+}
 /* グローバルツールチップ: js/tooltip.js が単一fixed要素(.global-tip)で自動配置する。
    旧の疑似要素方式は無効化済み。data-tooltip-pos属性は無視される(残置可)。 */
 .global-tip {
