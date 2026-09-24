@@ -78,6 +78,15 @@ function streamFormData() {
   };
 }
 
+function liveFormData() {
+  return {
+    performedOn: $('#live-performed-on').value,
+    sourceIndex: $('#live-source-index').value,
+    title: $('#live-title').value,
+    songsText: $('#live-songs-text').value,
+  };
+}
+
 function renderPreview(rows) {
   $('#preview-box').innerHTML = `
     <div class="admin-table-wrap">
@@ -344,6 +353,8 @@ async function loadStatus() {
 function initManagement() {
   const streamedOn = $('#streamed-on');
   if (streamedOn && !streamedOn.value) streamedOn.valueAsDate = new Date();
+  const livePerformedOn = $('#live-performed-on');
+  if (livePerformedOn && !livePerformedOn.value) livePerformedOn.valueAsDate = new Date();
   loadChannels();
 
   $('#preview-stream')?.addEventListener('click', async () => {
@@ -367,6 +378,18 @@ function initManagement() {
       loadStatus();
     } catch (error) {
       $('#stream-status').textContent = error.message || String(error);
+    }
+  });
+
+  $('#submit-live')?.addEventListener('click', async () => {
+    if (!confirm('このライブ情報をD1に登録します。よろしいですか？')) return;
+    $('#live-status').textContent = '登録中...';
+    try {
+      const data = await adminApi('live-events', liveFormData());
+      $('#live-status').textContent = `登録しました: live_id=${data.liveId}, ${data.songCount}曲。必要なら静的データ生成を開始してください。`;
+      loadStatus();
+    } catch (error) {
+      $('#live-status').textContent = error.message || String(error);
     }
   });
 
